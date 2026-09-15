@@ -9,20 +9,23 @@
 </head>
 <body class="bg-slate-100 min-h-screen text-slate-800 flex flex-col">
 
-  <!-- NAVBAR UNIFICADO -->
+  <!-- NAVBAR UNIFICADO CON SESIÓN DE GESTOR -->
   <header class="bg-blue-600 text-white p-4 flex justify-between items-center shadow-md">
     <h1 class="font-bold text-lg">Desayunos Escolares</h1>
-    <span id="gestor-badge" class="text-xs bg-blue-800 px-2 py-1 rounded hidden"></span>
+    <div id="gestor-badge" class="text-xs bg-blue-800 px-2 py-1 rounded hidden flex items-center gap-2">
+      <span id="gestor-nombre-span"></span>
+      <button onclick="cerrarSesionGestor()" class="text-yellow-300 underline font-bold">Salir</button>
+    </div>
   </header>
 
-  <!-- PESTAÑAS DE NAVEGACIÓN (Uso Directo sin password inicial) -->
+  <!-- PESTAÑAS DE NAVEGACIÓN -->
   <div class="flex bg-white border-b">
-    <button id="tab-entregar" onclick="cambiarTab('entregar')" class="flex-1 py-3 text-center font-bold border-b-4 border-blue-600 text-blue-600">1. Entregar (Sin Pass)</button>
-    <button id="tab-cobrar" onclick="cambiarTab('cobrar')" class="flex-1 py-3 text-center font-bold text-gray-500 border-b-4 border-transparent">2. Cobrar Servicio</button>
+    <button id="tab-entregar" onclick="cambiarTab('entregar')" class="flex-1 py-3 text-center font-bold border-b-4 border-blue-600 text-blue-600">1. Entregar</button>
+    <button id="tab-cobrar" onclick="cambiarTab('cobrar')" class="flex-1 py-3 text-center font-bold text-gray-500 border-b-4 border-transparent">2. Cobrar</button>
     <button id="tab-cocina" onclick="cambiarTab('cocina')" class="flex-1 py-3 text-center font-bold text-gray-500 border-b-4 border-transparent">3. Cocina</button>
   </div>
 
-  <!-- SECCIÓN 1: ENTREGAR DESAYUNO (LIBRE Y RÁPIDO) -->
+  <!-- SECCIÓN 1: ENTREGAR DESAYUNO (RÁPIDO) -->
   <main id="view-entregar" class="p-4 max-w-md mx-auto w-full flex-1">
     <div class="bg-white p-4 rounded-xl shadow mb-4">
       <h2 class="font-bold text-gray-700 mb-2">Escanear QR para Entregar</h2>
@@ -37,18 +40,19 @@
     <div id="res-entrega" class="hidden p-4 rounded-xl text-center font-bold text-lg shadow"></div>
   </main>
 
-  <!-- SECCIÓN 2: COBRAR SERVICIO (PROTEGIDO) -->
+  <!-- SECCIÓN 2: COBRAR SERVICIO -->
   <main id="view-cobrar" class="hidden p-4 max-w-md mx-auto w-full flex-1">
     
-    <!-- Modulo Autenticación de Cobro -->
+    <!-- Modulo Autenticación (Solo si no ha iniciado sesión) -->
     <div id="auth-cobro-box" class="bg-white p-4 rounded-xl shadow mb-4">
-      <h3 class="font-bold text-red-600 mb-2">Acceso Requerido para Cobrar</h3>
-      <input type="text" id="input-gestor" placeholder="Tu Nombre (Gestor)" class="w-full border p-2 rounded mb-2">
+      <h3 class="font-bold text-blue-600 mb-2">Alta / Registro de Gestor para Cobro</h3>
+      <p class="text-xs text-gray-500 mb-3">Ingresa tus datos una sola vez para iniciar tu turno de cobro.</p>
+      <input type="text" id="input-gestor" placeholder="Nombre de quien cobrará" class="w-full border p-2 rounded mb-2">
       <input type="password" id="input-pass" placeholder="Contraseña (desayunof93)" class="w-full border p-2 rounded mb-3">
-      <button onclick="autenticarCobro()" class="w-full bg-blue-600 text-white py-2 rounded font-bold">Autenticar Cobro</button>
+      <button onclick="autenticarCobro()" class="w-full bg-blue-600 text-white py-2 rounded font-bold">Iniciar Turno de Cobro</button>
     </div>
 
-    <!-- Modulo de Búsqueda y Cobro (Oculto hasta autenticarse) -->
+    <!-- Modulo de Búsqueda y Cobro -->
     <div id="cobro-content" class="hidden">
       <div class="bg-white p-4 rounded-xl shadow mb-4">
         <h2 class="font-bold text-gray-700 mb-2">Escanear o Buscar Alumno</h2>
@@ -61,19 +65,23 @@
 
       <div id="res-busqueda-cobrar" class="hidden bg-white p-4 rounded-xl shadow mb-4"></div>
 
-      <div id="modulo-calendario" class="hidden bg-white p-4 rounded-xl shadow">
-        <h3 class="font-bold text-gray-700 mb-2">Selecciona los días ($30 c/u):</h3>
-        <div id="contenedor-dias" class="grid grid-cols-1 gap-2 mb-4"></div>
-        <div class="flex justify-between items-center mb-4">
-          <span class="font-bold">Total:</span>
-          <span id="total-pago" class="text-xl font-bold text-green-600">$0 MXN</span>
+      <!-- CALENDARIO EXTENDIDO A 1 MES (4 SEMANAS) -->
+      <div id="modulo-calendario" class="hidden bg-white p-4 rounded-xl shadow mb-6">
+        <h3 class="font-bold text-gray-700 mb-1">Selecciona los días ($30 c/u):</h3>
+        <p class="text-xs text-gray-500 mb-3">Semana actual y próximas 3 semanas disponibles.</p>
+        
+        <div id="contenedor-dias" class="space-y-4 mb-4"></div>
+        
+        <div class="flex justify-between items-center mb-4 pt-2 border-t">
+          <span class="font-bold text-lg">Total a cobrar:</span>
+          <span id="total-pago" class="text-2xl font-bold text-green-600">$0 MXN</span>
         </div>
-        <button onclick="procesarPago()" class="w-full bg-green-600 text-white py-3 rounded-lg font-bold">Guardar Pago</button>
+        <button onclick="procesarPago()" class="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-lg font-bold text-lg shadow">Guardar y Confirmar Pago</button>
       </div>
     </div>
   </main>
 
-  <!-- SECCIÓN 3: REPORTE DE COCINA DIARIO -->
+  <!-- SECCIÓN 3: REPORTE DE COCINA -->
   <main id="view-cocina" class="hidden p-4 max-w-md mx-auto w-full flex-1">
     <div class="bg-white p-6 rounded-xl shadow text-center">
       <h2 class="font-bold text-xl text-gray-800 mb-1">Reporte de Cocina</h2>
@@ -99,7 +107,7 @@
   </main>
 
   <script>
-    // REEMPLAZA CON LA URL DE TU WEB APP EN GOOGLE APPS SCRIPT
+    // REEMPLAZA CON TU URL DE WEB APP DE APPS SCRIPT
     const GAS_URL = "https://script.google.com/macros/s/AKfycbwy04JiTDX-KzrZOrYLxcoojMIno_Jf3nJidinwMA7qMu3AzTEJra3umravlcNGwxnHew/exec";
 
     let appPassword = "";
@@ -111,7 +119,68 @@
 
     window.onload = () => {
       iniciarLectorQR('entregar');
+      comprobarSesionGestor();
     };
+
+    // --- MANEJO DE SESIÓN DEL GESTOR (PERSISTENTE) ---
+    function comprobarSesionGestor() {
+      const pGuardada = localStorage.getItem('appPassword');
+      const gGuardado = localStorage.getItem('gestorNombre');
+
+      if (pGuardada && gGuardado) {
+        appPassword = pGuardada;
+        gestorNombre = gGuardado;
+        mostrarPantallaCobroActiva();
+      }
+    }
+
+    function autenticarCobro() {
+      const g = document.getElementById('input-gestor').value.trim();
+      const p = document.getElementById('input-pass').value.trim();
+
+      if (!g || !p) return alert("Ingresa tu nombre y la contraseña.");
+
+      fetch(GAS_URL, {
+        method: "POST",
+        body: JSON.stringify({ pass: p, action: "validarGestor" })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          appPassword = p;
+          gestorNombre = g;
+          
+          // Guardar en almacenamiento local del dispositivo
+          localStorage.setItem('appPassword', appPassword);
+          localStorage.setItem('gestorNombre', gestorNombre);
+
+          mostrarPantallaCobroActiva();
+          if (!document.getElementById('view-cobrar').classList.contains('hidden')) {
+            iniciarLectorQR('cobrar');
+          }
+        } else {
+          alert("Contraseña incorrecta.");
+        }
+      })
+      .catch(() => alert("Error al verificar credenciales. Revisa tu conexión."));
+    }
+
+    function mostrarPantallaCobroActiva() {
+      document.getElementById('auth-cobro-box').classList.add('hidden');
+      document.getElementById('cobro-content').classList.remove('hidden');
+      document.getElementById('gestor-nombre-span').innerText = `Gestor: ${gestorNombre}`;
+      document.getElementById('gestor-badge').classList.remove('hidden');
+    }
+
+    function cerrarSesionGestor() {
+      localStorage.removeItem('appPassword');
+      localStorage.removeItem('gestorNombre');
+      appPassword = "";
+      gestorNombre = "";
+      document.getElementById('auth-cobro-box').classList.remove('hidden');
+      document.getElementById('cobro-content').classList.add('hidden');
+      document.getElementById('gestor-badge').classList.add('hidden');
+    }
 
     // --- NAVEGACIÓN ---
     function cambiarTab(tab) {
@@ -142,35 +211,6 @@
       }
     }
 
-    // --- AUTENTICACIÓN EXCLUSIVA PARA COBRO ---
-    function autenticarCobro() {
-      const g = document.getElementById('input-gestor').value;
-      const p = document.getElementById('input-pass').value;
-
-      if (!g || !p) return alert("Ingresa tu nombre de gestor y la contraseña.");
-
-      appPassword = p;
-      gestorNombre = g;
-
-      // Validar datos realizando una consulta
-      fetch(GAS_URL, {
-        method: "POST",
-        body: JSON.stringify({ pass: appPassword, action: "buscarUsuario", query: "test" })
-      })
-      .then(res => res.json())
-      .then(data => {
-        if (data.success) {
-          document.getElementById('auth-cobro-box').classList.add('hidden');
-          document.getElementById('cobro-content').classList.remove('hidden');
-          document.getElementById('gestor-badge').innerText = `Gestor: ${gestorNombre}`;
-          document.getElementById('gestor-badge').classList.remove('hidden');
-          iniciarLectorQR('cobrar');
-        } else {
-          alert("Contraseña incorrecta.");
-        }
-      });
-    }
-
     // --- SCANNER QR ---
     function iniciarLectorQR(modo) {
       const elementId = modo === 'cobrar' ? "reader-cobrar" : "reader-entregar";
@@ -199,7 +239,7 @@
       if (scanner && scanner.isScanning) scanner.stop();
     }
 
-    // --- BUSQUEDA ---
+    // --- BÚSQUEDA ---
     function buscar(modo) {
       const query = document.getElementById(modo === 'cobrar' ? 'busqueda-cobrar' : 'busqueda-entregar').value;
       if (!query) return alert("Escribe un nombre o ID");
@@ -220,54 +260,102 @@
       });
     }
 
-    // --- COBRO ---
+    // --- COBRO Y CALENDARIO DE 1 MES (4 SEMANAS) ---
     function mostrarSeleccionCobro(usuario) {
       usuarioSeleccionado = usuario;
       const resDiv = document.getElementById('res-busqueda-cobrar');
       resDiv.innerHTML = `
-        <p class="font-bold text-lg">${usuario.nombre}</p>
-        <p class="text-sm text-gray-600">ID: ${usuario.id} | ${usuario.tipo} (${usuario.grado})</p>
+        <p class="font-bold text-lg text-blue-900">${usuario.nombre}</p>
+        <p class="text-xs text-gray-600">ID: ${usuario.id} | ${usuario.tipo} (${usuario.grado})</p>
       `;
       resDiv.classList.remove('hidden');
 
-      generarCalendarioSemanal();
+      generarCalendarioMes();
       document.getElementById('modulo-calendario').classList.remove('hidden');
     }
 
-    function generarCalendarioSemanal() {
+    function generarCalendarioMes() {
       const contenedor = document.getElementById('contenedor-dias');
       contenedor.innerHTML = "";
       fechasSeleccionadas = [];
       actualizarTotal();
 
-      let fecha = new Date();
-      let diasAgregados = 0;
+      let hoy = new Date();
+      let diaSemana = hoy.getDay(); // 0: Dom, 1: Lun, ... 6: Sab
+      
+      // Encontrar el Lunes de la semana actual
+      let diffLunes = (diaSemana === 0 ? -6 : 1 - diaSemana);
+      let fechaInicio = new Date(hoy);
+      fechaInicio.setDate(hoy.getDate() + diffLunes);
 
-      while (diasAgregados < 5) {
-        let diaSemana = fecha.getDay();
-        if (diaSemana !== 0 && diaSemana !== 6) {
-          let isoDate = fecha.toISOString().split('T')[0];
-          let nombreDia = fecha.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'short' });
+      const nombresSemanas = ["Semana Actual", "Semana 2 (Siguiente)", "Semana 3", "Semana 4"];
+
+      for (let s = 0; s < 4; s++) {
+        let divSemana = document.createElement('div');
+        divSemana.className = "border rounded-lg p-3 bg-slate-50 shadow-sm";
+
+        let tituloSemana = document.createElement('div');
+        tituloSemana.className = "flex justify-between items-center mb-2 pb-1 border-b font-bold text-slate-700 text-sm";
+        tituloSemana.innerHTML = `<span>📅 ${nombresSemanas[s]}</span>`;
+        
+        let btnSemanaCompleta = document.createElement('button');
+        btnSemanaCompleta.type = "button";
+        btnSemanaCompleta.className = "text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded hover:bg-blue-200 font-semibold";
+        btnSemanaCompleta.innerText = "+ Toda la semana";
+        
+        tituloSemana.appendChild(btnSemanaCompleta);
+        divSemana.appendChild(tituloSemana);
+
+        let gridDias = document.createElement('div');
+        gridDias.className = "grid grid-cols-1 gap-1.5";
+
+        let diasDeLaSemana = [];
+
+        for (let d = 0; d < 5; d++) {
+          let isoDate = fechaInicio.toISOString().split('T')[0];
+          let opciones = { weekday: 'short', day: 'numeric', month: 'short' };
+          let nombreDia = fechaInicio.toLocaleDateString('es-ES', opciones);
 
           let btn = document.createElement('button');
-          btn.className = "p-3 border rounded-lg text-left flex justify-between items-center bg-gray-50";
-          btn.innerHTML = `<span class="capitalize">${nombreDia}</span> <span class="font-bold">$30</span>`;
+          btn.type = "button";
+          btn.className = "p-2 border rounded text-left flex justify-between items-center bg-white hover:bg-gray-100 text-sm transition-all";
+          btn.innerHTML = `<span class="capitalize font-medium">${nombreDia}</span> <span class="font-bold text-slate-600">$30</span>`;
           btn.onclick = () => alternarDia(btn, isoDate);
 
-          contenedor.appendChild(btn);
-          diasAgregados++;
+          gridDias.appendChild(btn);
+          diasDeLaSemana.push({ element: btn, fecha: isoDate });
+
+          // Avanzar al siguiente día hábil
+          fechaInicio.setDate(fechaInicio.getDate() + 1);
         }
-        fecha.setDate(fecha.getDate() + 1);
+
+        // Pasar de Viernes a Lunes (+2 días de fin de semana)
+        fechaInicio.setDate(fechaInicio.getDate() + 2);
+
+        // Acción de botón + Toda la semana
+        btnSemanaCompleta.onclick = () => {
+          let todasSeleccionadas = diasDeLaSemana.every(d => fechasSeleccionadas.includes(d.fecha));
+          diasDeLaSemana.forEach(d => {
+            if (todasSeleccionadas) {
+              if (fechasSeleccionadas.includes(d.fecha)) alternarDia(d.element, d.fecha);
+            } else {
+              if (!fechasSeleccionadas.includes(d.fecha)) alternarDia(d.element, d.fecha);
+            }
+          });
+        };
+
+        divSemana.appendChild(gridDias);
+        contenedor.appendChild(divSemana);
       }
     }
 
     function alternarDia(element, fecha) {
       if (fechasSeleccionadas.includes(fecha)) {
         fechasSeleccionadas = fechasSeleccionadas.filter(f => f !== fecha);
-        element.classList.remove('border-green-600', 'bg-green-100');
+        element.classList.remove('border-green-600', 'bg-green-100', 'font-bold');
       } else {
         fechasSeleccionadas.push(fecha);
-        element.classList.add('border-green-600', 'bg-green-100');
+        element.classList.add('border-green-600', 'bg-green-100', 'font-bold');
       }
       actualizarTotal();
     }
@@ -277,7 +365,7 @@
     }
 
     function procesarPago() {
-      if (fechasSeleccionadas.length === 0) return alert("Selecciona al menos un día.");
+      if (fechasSeleccionadas.length === 0) return alert("Selecciona al menos un día para cobrar.");
 
       fetch(GAS_URL, {
         method: "POST",
@@ -291,10 +379,16 @@
       })
       .then(res => res.json())
       .then(data => {
-        alert(data.message);
-        document.getElementById('modulo-calendario').classList.add('hidden');
-        document.getElementById('res-busqueda-cobrar').classList.add('hidden');
-      });
+        if (data.success) {
+          alert(data.message);
+          document.getElementById('modulo-calendario').classList.add('hidden');
+          document.getElementById('res-busqueda-cobrar').classList.add('hidden');
+          document.getElementById('busqueda-cobrar').value = "";
+        } else {
+          alert("Error: " + data.message);
+        }
+      })
+      .catch(() => alert("Error al procesar el pago en el servidor."));
     }
 
     // --- ENTREGA (SIN PASSWORD) ---
@@ -335,5 +429,4 @@
   </script>
 </body>
 </html>
- 
  
