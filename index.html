@@ -3,505 +3,442 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Desayunos Escolares</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+  <title>Cobro de Desayunos Escolares</title>
+  <!-- Librería de escaneo QR ultra rápida -->
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <style>
+    :root {
+      --primary: #2563eb;
+      --success: #16a34a;
+      --danger: #dc2626;
+      --bg: #f8fafc;
+      --card-bg: #ffffff;
+    }
+    
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: var(--bg);
+      margin: 0;
+      padding: 15px;
+      color: #1e293b;
+    }
+
+    .container {
+      max-width: 500px;
+      margin: 0 auto;
+    }
+
+    .card {
+      background: var(--card-bg);
+      border-radius: 12px;
+      padding: 16px;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+      margin-bottom: 15px;
+    }
+
+    h2, h3 { margin-top: 0; color: #0f172a; text-align: center; }
+
+    /* Lector QR Optimizado */
+    #reader {
+      width: 100%;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 2px solid #e2e8f0;
+      background: #000;
+    }
+
+    /* Buscador manual */
+    .search-box {
+      display: flex;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    input[type="text"], input[type="password"] {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      font-size: 15px;
+      box-sizing: border-box;
+    }
+
+    button {
+      padding: 10px 16px;
+      border: none;
+      border-radius: 8px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .btn-primary { background: var(--primary); color: white; }
+    .btn-success { background: var(--success); color: white; width: 100%; font-size: 16px; padding: 12px; }
+
+    /* Tarjeta de Alumno */
+    .user-info {
+      background: #eff6ff;
+      border-left: 4px solid var(--primary);
+      padding: 10px 12px;
+      border-radius: 6px;
+      margin-bottom: 12px;
+    }
+
+    /* Selector de Días y Semanas */
+    .week-title {
+      font-size: 13px;
+      font-weight: bold;
+      color: #64748b;
+      margin: 12px 0 6px 0;
+      text-transform: uppercase;
+    }
+
+    .days-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 6px;
+      margin-bottom: 12px;
+    }
+
+    .day-chip {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 8px 4px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      background: #f1f5f9;
+      cursor: pointer;
+      user-select: none;
+      font-size: 12px;
+      text-align: center;
+    }
+
+    .day-chip .day-name { font-weight: bold; font-size: 11px; }
+    .day-chip .day-date { font-size: 10px; color: #64748b; }
+
+    /* Estados de los Días */
+    .day-chip.selected {
+      background: #dbeafe;
+      border-color: var(--primary);
+      color: var(--primary);
+      font-weight: bold;
+    }
+
+    .day-chip.paid {
+      background: #dcfce7;
+      border-color: var(--success);
+      color: var(--success);
+      cursor: not-allowed;
+      opacity: 0.8;
+    }
+
+    .total-box {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #f8fafc;
+      padding: 10px;
+      border-radius: 8px;
+      font-weight: bold;
+      margin-bottom: 12px;
+    }
+
+    .hidden { display: none !important; }
+    
+    #status-msg {
+      padding: 10px;
+      border-radius: 8px;
+      text-align: center;
+      font-weight: bold;
+      margin-top: 10px;
+    }
+  </style>
 </head>
-<body class="bg-slate-100 min-h-screen text-slate-800 flex flex-col">
+<body>
 
-  <!-- NAVBAR UNIFICADO CON SESIÓN DE GESTOR -->
-  <header class="bg-blue-600 text-white p-4 flex justify-between items-center shadow-md">
-    <h1 class="font-bold text-lg">Desayunos Escolares</h1>
-    <div id="gestor-badge" class="text-xs bg-blue-800 px-2 py-1 rounded hidden flex items-center gap-2">
-      <span id="gestor-nombre-span"></span>
-      <button onclick="cerrarSesionGestor()" class="text-yellow-300 underline font-bold">Salir</button>
+<div class="container">
+  <div class="card">
+    <h2>📷 Escáner de Cobro</h2>
+    <!-- Lector QR -->
+    <div id="reader"></div>
+    
+    <!-- Buscador Manual -->
+    <div class="search-box">
+      <input type="text" id="input-search" placeholder="Buscar por Nombre o ID...">
+      <button class="btn-primary" onclick="buscarUsuarioManual()">Buscar</button>
     </div>
-  </header>
-
-  <!-- PESTAÑAS DE NAVEGACIÓN -->
-  <div class="flex bg-white border-b">
-    <button id="tab-entregar" onclick="cambiarTab('entregar')" class="flex-1 py-3 text-center font-bold border-b-4 border-blue-600 text-blue-600">1. Entregar</button>
-    <button id="tab-cobrar" onclick="cambiarTab('cobrar')" class="flex-1 py-3 text-center font-bold text-gray-500 border-b-4 border-transparent">2. Cobrar</button>
-    <button id="tab-cocina" onclick="cambiarTab('cocina')" class="flex-1 py-3 text-center font-bold text-gray-500 border-b-4 border-transparent">3. Cocina</button>
   </div>
 
-  <!-- SECCIÓN 1: ENTREGAR DESAYUNO -->
-  <main id="view-entregar" class="p-4 max-w-md mx-auto w-full flex-1">
-    <div class="bg-white p-4 rounded-xl shadow mb-4">
-      <h2 class="font-bold text-gray-700 mb-2">Escanear QR o Buscar Alumno</h2>
-      <div id="reader-entregar" class="w-full rounded overflow-hidden mb-3"></div>
-      
-      <div class="flex gap-2">
-        <input type="text" id="busqueda-entregar" placeholder="Buscar por ID o Nombre..." class="flex-1 border p-2 rounded">
-        <button onclick="buscar('entregar')" class="bg-gray-800 text-white px-4 rounded font-bold">Buscar</button>
-      </div>
-    </div>
-
-    <!-- LISTADO DE RESULTADOS DE BÚSQUEDA MANUAL -->
-    <div id="lista-busqueda-entregar" class="hidden space-y-2 mb-4"></div>
-
-    <!-- ALERTA RESULTADO DE ENTREGA -->
-    <div id="res-entrega" class="hidden p-4 rounded-xl text-center font-bold text-base shadow"></div>
-  </main>
-
-  <!-- SECCIÓN 2: COBRAR SERVICIO -->
-  <main id="view-cobrar" class="hidden p-4 max-w-md mx-auto w-full flex-1">
+  <!-- Panel de Cobro -->
+  <div class="card hidden" id="panel-cobro">
+    <h3>Detalle de Cobro</h3>
     
-    <!-- Modulo Autenticación -->
-    <div id="auth-cobro-box" class="bg-white p-4 rounded-xl shadow mb-4">
-      <h3 class="font-bold text-blue-600 mb-2">Alta / Registro de Gestor para Cobro</h3>
-      <p class="text-xs text-gray-500 mb-3">Ingresa tus datos una sola vez para iniciar tu turno de cobro.</p>
-      <input type="text" id="input-gestor" placeholder="Nombre de quien cobrará" class="w-full border p-2 rounded mb-2">
-      <input type="password" id="input-pass" placeholder="Contraseña (desayunof93)" class="w-full border p-2 rounded mb-3">
-      <button onclick="autenticarCobro()" class="w-full bg-blue-600 text-white py-2 rounded font-bold">Iniciar Turno de Cobro</button>
+    <div class="user-info">
+      <div id="user-name" style="font-weight: bold; font-size: 16px;">-</div>
+      <div id="user-detail" style="font-size: 13px; color: #475569;">ID: -</div>
     </div>
 
-    <!-- Modulo de Búsqueda y Cobro -->
-    <div id="cobro-content" class="hidden">
-      <div class="bg-white p-4 rounded-xl shadow mb-4">
-        <h2 class="font-bold text-gray-700 mb-2">Escanear o Buscar Alumno</h2>
-        <div id="reader-cobrar" class="w-full rounded overflow-hidden mb-3"></div>
-        <div class="flex gap-2">
-          <input type="text" id="busqueda-cobrar" placeholder="Buscar por ID o Nombre..." class="flex-1 border p-2 rounded">
-          <button onclick="buscar('cobrar')" class="bg-gray-800 text-white px-4 rounded font-bold">Buscar</button>
-        </div>
-      </div>
+    <!-- Selección de Días -->
+    <div class="week-title">📅 Esta Semana</div>
+    <div class="days-grid" id="grid-semana-actual"></div>
 
-      <!-- LISTADO DE RESULTADOS COBRO -->
-      <div id="lista-busqueda-cobrar" class="hidden space-y-2 mb-4"></div>
+    <div class="week-title">📅 Próxima Semana</div>
+    <div class="days-grid" id="grid-semana-siguiente"></div>
 
-      <div id="res-busqueda-cobrar" class="hidden bg-white p-4 rounded-xl shadow mb-4"></div>
-
-      <!-- CALENDARIO EXTENDIDO A 1 MES (4 SEMANAS) CON PREVENCIÓN DE COBRO DOBLE -->
-      <div id="modulo-calendario" class="hidden bg-white p-4 rounded-xl shadow mb-6">
-        <h3 class="font-bold text-gray-700 mb-1">Selecciona los días ($30 c/u):</h3>
-        <p class="text-xs text-gray-500 mb-3">Semana actual y próximas 3 semanas. Días pagados previamente deshabilitados.</p>
-        
-        <div id="contenedor-dias" class="space-y-4 mb-4"></div>
-        
-        <div class="flex justify-between items-center mb-4 pt-2 border-t">
-          <span class="font-bold text-lg">Total a cobrar:</span>
-          <span id="total-pago" class="text-2xl font-bold text-green-600">$0 MXN</span>
-        </div>
-        <button onclick="procesarPago()" class="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-lg font-bold text-lg shadow">Guardar y Confirmar Pago</button>
-      </div>
+    <!-- Resumen de Pago -->
+    <div class="total-box">
+      <span>Días seleccionados: <span id="cant-dias">0</span></span>
+      <span style="font-size: 18px; color: var(--success);" id="total-monto">$0 MXN</span>
     </div>
-  </main>
 
-  <!-- SECCIÓN 3: REPORTE DE COCINA -->
-  <main id="view-cocina" class="hidden p-4 max-w-md mx-auto w-full flex-1">
-    <div class="bg-white p-6 rounded-xl shadow text-center">
-      <h2 class="font-bold text-xl text-gray-800 mb-1">Reporte de Cocina</h2>
-      <p id="cocina-fecha" class="text-xs text-gray-500 mb-4"></p>
-
-      <div class="grid grid-cols-3 gap-2 my-4">
-        <div class="bg-blue-50 p-3 rounded-lg border border-blue-200">
-          <span class="block text-2xl font-bold text-blue-600" id="rep-pagados">0</span>
-          <span class="text-xs text-blue-800 font-semibold">Pagados</span>
-        </div>
-        <div class="bg-green-50 p-3 rounded-lg border border-green-200">
-          <span class="block text-2xl font-bold text-green-600" id="rep-entregados">0</span>
-          <span class="text-xs text-green-800 font-semibold">Entregados</span>
-        </div>
-        <div class="bg-orange-50 p-3 rounded-lg border border-orange-200">
-          <span class="block text-2xl font-bold text-orange-600" id="rep-pendientes">0</span>
-          <span class="text-xs text-orange-800 font-semibold">Pendientes</span>
-        </div>
-      </div>
-
-      <button onclick="cargarReporteCocina()" class="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 py-2 rounded font-bold text-sm">Actualizar Métricas</button>
+    <!-- Clave del Gestor -->
+    <div style="margin-bottom: 12px;">
+      <input type="password" id="pass-gestor" placeholder="Contraseña de Cobro" value="desayunof93">
+      <input type="text" id="nombre-gestor" placeholder="Nombre de quien cobra" value="Cajero" style="margin-top: 6px;">
     </div>
-  </main>
 
-  <script>
-    // REEMPLAZA CON TU URL DE WEB APP DE APPS SCRIPT
-    const GAS_URL = "https://script.google.com/macros/s/AKfycbwy04JiTDX-KzrZOrYLxcoojMIno_Jf3nJidinwMA7qMu3AzTEJra3umravlcNGwxnHew/exec";
+    <!-- Botón de Cobro -->
+    <button class="btn-success" id="btn-cobrar" onclick="procesarCobro()" disabled style="opacity: 0.5;">
+      Selecciona al menos un día
+    </button>
+  </div>
 
-    let appPassword = "";
-    let gestorNombre = "";
-    let html5QrCodeCobrar = null;
-    let html5QrCodeEntregar = null;
-    let usuarioSeleccionado = null;
-    let fechasSeleccionadas = [];
-    let fechasPagadasUsuario = [];
+  <div id="status-msg" class="hidden"></div>
+</div>
 
-    window.onload = () => {
-      iniciarLectorQR('entregar');
-      comprobarSesionGestor();
+<script>
+  // =========================================================================
+  // ⚠️ PEGA AQUÍ LA URL DE TU APLICACIÓN WEB (Termina en /exec)
+  // =========================================================================
+  const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwy04JiTDX-KzrZOrYLxcoojMIno_Jf3nJidinwMA7qMu3AzTEJra3umravlcNGwxnHew/exec"; 
+
+  const PRECIO_DIA = 30;
+  let usuarioActual = null;
+  let fechasSeleccionadas = [];
+  let html5QrCode = null;
+  let isScanningLocked = false;
+
+  // Conexión API con Google Apps Script desde GitHub Pages
+  async function apiCall(datos) {
+    if (!WEB_APP_URL || WEB_APP_URL.includes("PEGA_AQUI")) {
+      alert("Debes colocar la URL de tu Web App de Google Apps Script en la variable WEB_APP_URL.");
+      throw new Error("URL no configurada");
+    }
+    const resp = await fetch(WEB_APP_URL, {
+      method: "POST",
+      body: JSON.stringify(datos)
+    });
+    return await resp.json();
+  }
+
+  // ==========================================
+  // 1. ESCÁNER QR OPTIMIZADO
+  // ==========================================
+  function iniciarEscaner() {
+    html5QrCode = new Html5Qrcode("reader");
+    
+    const config = {
+      fps: 25,
+      qrbox: { width: 220, height: 220 },
+      aspectRatio: 1.0,
+      videoConstraints: {
+        facingMode: "environment",
+        width: { ideal: 1280 },
+        height: { ideal: 720 }
+      }
     };
 
-    // --- SESIÓN DEL GESTOR ---
-    function comprobarSesionGestor() {
-      const pGuardada = localStorage.getItem('appPassword');
-      const gGuardado = localStorage.getItem('gestorNombre');
+    html5QrCode.start(
+      { facingMode: "environment" },
+      config,
+      onScanSuccess
+    ).catch(err => {
+      console.warn("Error con cámara trasera, intentando frontal:", err);
+      html5QrCode.start({ facingMode: "user" }, config, onScanSuccess);
+    });
+  }
 
-      if (pGuardada && gGuardado) {
-        appPassword = pGuardada;
-        gestorNombre = gGuardado;
-        mostrarPantallaCobroActiva();
-      }
-    }
+  function onScanSuccess(decodedText) {
+    if (isScanningLocked) return;
+    
+    isScanningLocked = true;
+    setTimeout(() => { isScanningLocked = false; }, 1500);
 
-    function autenticarCobro() {
-      const g = document.getElementById('input-gestor').value.trim();
-      const p = document.getElementById('input-pass').value.trim();
+    const idScanned = decodedText.trim();
+    cargarUsuarioParaCobro(idScanned);
+  }
 
-      if (!g || !p) return alert("Ingresa tu nombre y la contraseña.");
+  // ==========================================
+  // 2. BUSCAR Y CARGAR USUARIO
+  // ==========================================
+  function buscarUsuarioManual() {
+    const q = document.getElementById('input-search').value.trim();
+    if (q !== "") cargarUsuarioParaCobro(q);
+  }
 
-      fetch(GAS_URL, {
-        method: "POST",
-        body: JSON.stringify({ pass: p, action: "validarGestor" })
-      })
-      .then(res => res.json())
-      .then(data => {
-        if (data.success) {
-          appPassword = p;
-          gestorNombre = g;
-          localStorage.setItem('appPassword', appPassword);
-          localStorage.setItem('gestorNombre', gestorNombre);
-          mostrarPantallaCobroActiva();
-          if (!document.getElementById('view-cobrar').classList.contains('hidden')) {
-            iniciarLectorQR('cobrar');
-          }
-        } else {
-          alert("Contraseña incorrecta.");
-        }
-      })
-      .catch(() => alert("Error de conexión al autenticar."));
-    }
-
-    function mostrarPantallaCobroActiva() {
-      document.getElementById('auth-cobro-box').classList.add('hidden');
-      document.getElementById('cobro-content').classList.remove('hidden');
-      document.getElementById('gestor-nombre-span').innerText = `Gestor: ${gestorNombre}`;
-      document.getElementById('gestor-badge').classList.remove('hidden');
-    }
-
-    function cerrarSesionGestor() {
-      localStorage.removeItem('appPassword');
-      localStorage.removeItem('gestorNombre');
-      appPassword = "";
-      gestorNombre = "";
-      document.getElementById('auth-cobro-box').classList.remove('hidden');
-      document.getElementById('cobro-content').classList.add('hidden');
-      document.getElementById('gestor-badge').classList.add('hidden');
-    }
-
-    // --- NAVEGACIÓN ---
-    function cambiarTab(tab) {
-      document.getElementById('view-cobrar').classList.add('hidden');
-      document.getElementById('view-entregar').classList.add('hidden');
-      document.getElementById('view-cocina').classList.add('hidden');
+  async function cargarUsuarioParaCobro(query) {
+    mostrarMensaje("Cargando usuario...", "#2563eb");
+    
+    try {
+      const res = await apiCall({ action: "buscarUsuario", query: query });
       
-      document.getElementById('tab-cobrar').className = "flex-1 py-3 text-center font-bold text-gray-500 border-b-4 border-transparent";
-      document.getElementById('tab-entregar').className = "flex-1 py-3 text-center font-bold text-gray-500 border-b-4 border-transparent";
-      document.getElementById('tab-cocina').className = "flex-1 py-3 text-center font-bold text-gray-500 border-b-4 border-transparent";
-
-      if (tab === 'entregar') {
-        document.getElementById('view-entregar').classList.remove('hidden');
-        document.getElementById('tab-entregar').className = "flex-1 py-3 text-center font-bold border-b-4 border-blue-600 text-blue-600";
-        iniciarLectorQR('entregar');
-        detenerLectorQR('cobrar');
-      } else if (tab === 'cobrar') {
-        document.getElementById('view-cobrar').classList.remove('hidden');
-        document.getElementById('tab-cobrar').className = "flex-1 py-3 text-center font-bold border-b-4 border-blue-600 text-blue-600";
-        detenerLectorQR('entregar');
-        if (appPassword) iniciarLectorQR('cobrar');
-      } else if (tab === 'cocina') {
-        document.getElementById('view-cocina').classList.remove('hidden');
-        document.getElementById('tab-cocina').className = "flex-1 py-3 text-center font-bold border-b-4 border-blue-600 text-blue-600";
-        detenerLectorQR('entregar');
-        detenerLectorQR('cobrar');
-        cargarReporteCocina();
-      }
-    }
-
-    // --- SCANNER QR ---
-    function iniciarLectorQR(modo) {
-      const elementId = modo === 'cobrar' ? "reader-cobrar" : "reader-entregar";
-      const scanner = new Html5Qrcode(elementId);
-      
-      if (modo === 'cobrar') html5QrCodeCobrar = scanner;
-      else html5QrCodeEntregar = scanner;
-
-      scanner.start(
-        { facingMode: "environment" },
-        { fps: 10, qrbox: 250 },
-        (decodedText) => {
-          if (modo === 'cobrar') {
-            document.getElementById('busqueda-cobrar').value = decodedText;
-            buscar('cobrar');
-          } else {
-            validarEntrega(decodedText);
-          }
-        },
-        () => {}
-      ).catch(() => {});
-    }
-
-    function detenerLectorQR(modo) {
-      const scanner = modo === 'cobrar' ? html5QrCodeCobrar : html5QrCodeEntregar;
-      if (scanner && scanner.isScanning) scanner.stop();
-    }
-
-    // --- BÚSQUEDA Y MUESTRA DE LISTADO MANUAL ---
-    function buscar(modo) {
-      const query = document.getElementById(modo === 'cobrar' ? 'busqueda-cobrar' : 'busqueda-entregar').value;
-      if (!query) return alert("Escribe un nombre o ID para buscar.");
-
-      fetch(GAS_URL, {
-        method: "POST",
-        body: JSON.stringify({ action: "buscarUsuario", query: query })
-      })
-      .then(res => res.json())
-      .then(data => {
-        if (!data.success || data.usuarios.length === 0) return alert("No se encontraron coincidencias.");
-
-        if (modo === 'entregar') {
-          mostrarListadoEntregar(data.usuarios);
-        } else {
-          mostrarListadoCobrar(data.usuarios);
-        }
-      });
-    }
-
-    // --- LISTADO PARA TAB ENTREGAR ---
-    function mostrarListadoEntregar(usuarios) {
-      const contenedor = document.getElementById('lista-busqueda-entregar');
-      contenedor.innerHTML = "";
-      contenedor.classList.remove('hidden');
-
-      usuarios.forEach(u => {
-        let card = document.createElement('div');
-        card.className = "bg-white p-3 rounded-lg shadow flex justify-between items-center border border-gray-200";
-        card.innerHTML = `
-          <div>
-            <p class="font-bold text-gray-800 text-sm">${u.nombre}</p>
-            <p class="text-xs text-gray-500">ID: ${u.id} | ${u.tipo} (${u.grado})</p>
-          </div>
-          <button onclick="seleccionarYEntregar('${u.id}')" class="bg-blue-600 hover:bg-blue-700 text-white text-xs px-3 py-2 rounded font-bold shadow">
-            Entregar
-          </button>
-        `;
-        contenedor.appendChild(card);
-      });
-    }
-
-    function seleccionarYEntregar(id) {
-      document.getElementById('lista-busqueda-entregar').classList.add('hidden');
-      validarEntrega(id);
-    }
-
-    // --- LISTADO PARA TAB COBRAR ---
-    function mostrarListadoCobrar(usuarios) {
-      const contenedor = document.getElementById('lista-busqueda-cobrar');
-      contenedor.innerHTML = "";
-      contenedor.classList.remove('hidden');
-      document.getElementById('modulo-calendario').classList.add('hidden');
-      document.getElementById('res-busqueda-cobrar').classList.add('hidden');
-
-      usuarios.forEach(u => {
-        let card = document.createElement('div');
-        card.className = "bg-white p-3 rounded-lg shadow flex justify-between items-center border border-gray-200";
-        card.innerHTML = `
-          <div>
-            <p class="font-bold text-gray-800 text-sm">${u.nombre}</p>
-            <p class="text-xs text-gray-500">ID: ${u.id} | ${u.tipo} (${u.grado})</p>
-          </div>
-          <button onclick='seleccionarUsuarioCobro(${JSON.stringify(u)})' class="bg-green-600 hover:bg-green-700 text-white text-xs px-3 py-2 rounded font-bold shadow">
-            Cobrar
-          </button>
-        `;
-        contenedor.appendChild(card);
-      });
-    }
-
-    function seleccionarUsuarioCobro(usuario) {
-      document.getElementById('lista-busqueda-cobrar').classList.add('hidden');
-      usuarioSeleccionado = usuario;
-      
-      const resDiv = document.getElementById('res-busqueda-cobrar');
-      resDiv.innerHTML = `
-        <p class="font-bold text-lg text-blue-900">${usuario.nombre}</p>
-        <p class="text-xs text-gray-600">ID: ${usuario.id} | ${usuario.tipo} (${usuario.grado})</p>
-      `;
-      resDiv.classList.remove('hidden');
-
-      // Consultar fechas previamente pagadas para evitar cobro doble
-      fetch(GAS_URL, {
-        method: "POST",
-        body: JSON.stringify({ action: "obtenerFechasPagadas", id: usuario.id })
-      })
-      .then(res => res.json())
-      .then(data => {
-        fechasPagadasUsuario = data.fechasPagadas || [];
-        generarCalendarioMes();
-        document.getElementById('modulo-calendario').classList.remove('hidden');
-      });
-    }
-
-    // --- CALENDARIO 1 MES (PREVINIENDO COBROS DOBLES) ---
-    function generarCalendarioMes() {
-      const contenedor = document.getElementById('contenedor-dias');
-      contenedor.innerHTML = "";
-      fechasSeleccionadas = [];
-      actualizarTotal();
-
-      let hoy = new Date();
-      let diaSemana = hoy.getDay();
-      let diffLunes = (diaSemana === 0 ? -6 : 1 - diaSemana);
-      let fechaInicio = new Date(hoy);
-      fechaInicio.setDate(hoy.getDate() + diffLunes);
-
-      const nombresSemanas = ["Semana Actual", "Semana 2 (Próxima)", "Semana 3", "Semana 4"];
-
-      for (let s = 0; s < 4; s++) {
-        let divSemana = document.createElement('div');
-        divSemana.className = "border rounded-lg p-3 bg-slate-50 shadow-sm";
-
-        let tituloSemana = document.createElement('div');
-        tituloSemana.className = "flex justify-between items-center mb-2 pb-1 border-b font-bold text-slate-700 text-sm";
-        tituloSemana.innerHTML = `<span>📅 ${nombresSemanas[s]}</span>`;
+      if (res.success && res.usuarios.length > 0) {
+        usuarioActual = res.usuarios[0];
         
-        let btnSemanaCompleta = document.createElement('button');
-        btnSemanaCompleta.type = "button";
-        btnSemanaCompleta.className = "text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded hover:bg-blue-200 font-semibold";
-        btnSemanaCompleta.innerText = "+ Toda la semana";
-        
-        tituloSemana.appendChild(btnSemanaCompleta);
-        divSemana.appendChild(tituloSemana);
-
-        let gridDias = document.createElement('div');
-        gridDias.className = "grid grid-cols-1 gap-1.5";
-
-        let diasDeLaSemana = [];
-
-        for (let d = 0; d < 5; d++) {
-          let isoDate = fechaInicio.toISOString().split('T')[0];
-          let opciones = { weekday: 'short', day: 'numeric', month: 'short' };
-          let nombreDia = fechaInicio.toLocaleDateString('es-ES', opciones);
-
-          let estaPagado = fechasPagadasUsuario.includes(isoDate);
-
-          let btn = document.createElement('button');
-          btn.type = "button";
-
-          if (estaPagado) {
-            btn.className = "p-2 border rounded text-left flex justify-between items-center bg-emerald-50 border-emerald-300 text-emerald-700 text-sm cursor-not-allowed opacity-90";
-            btn.innerHTML = `<span class="capitalize font-medium">${nombreDia}</span> <span class="font-bold text-xs bg-emerald-200 text-emerald-800 px-2 py-0.5 rounded">✔ PAGADO</span>`;
-            btn.disabled = true;
-          } else {
-            btn.className = "p-2 border rounded text-left flex justify-between items-center bg-white hover:bg-gray-100 text-sm transition-all";
-            btn.innerHTML = `<span class="capitalize font-medium">${nombreDia}</span> <span class="font-bold text-slate-600">$30</span>`;
-            btn.onclick = () => alternarDia(btn, isoDate);
-            diasDeLaSemana.push({ element: btn, fecha: isoDate });
-          }
-
-          gridDias.appendChild(btn);
-          fechaInicio.setDate(fechaInicio.getDate() + 1);
-        }
-
-        fechaInicio.setDate(fechaInicio.getDate() + 2);
-
-        btnSemanaCompleta.onclick = () => {
-          let disponibles = diasDeLaSemana.filter(d => !fechasPagadasUsuario.includes(d.fecha));
-          let todasSeleccionadas = disponibles.every(d => fechasSeleccionadas.includes(d.fecha));
-
-          disponibles.forEach(d => {
-            if (todasSeleccionadas) {
-              if (fechasSeleccionadas.includes(d.fecha)) alternarDia(d.element, d.fecha);
-            } else {
-              if (!fechasSeleccionadas.includes(d.fecha)) alternarDia(d.element, d.fecha);
-            }
-          });
-        };
-
-        divSemana.appendChild(gridDias);
-        contenedor.appendChild(divSemana);
-      }
-    }
-
-    function alternarDia(element, fecha) {
-      if (fechasSeleccionadas.includes(fecha)) {
-        fechasSeleccionadas = fechasSeleccionadas.filter(f => f !== fecha);
-        element.classList.remove('border-green-600', 'bg-green-100', 'font-bold');
+        const resFechas = await apiCall({ action: "obtenerFechasPagadas", id: usuarioActual.id });
+        ocultarMensaje();
+        const pagadas = resFechas.fechasPagadas || [];
+        mostrarPanelCobro(usuarioActual, pagadas);
       } else {
-        fechasSeleccionadas.push(fecha);
-        element.classList.add('border-green-600', 'bg-green-100', 'font-bold');
+        mostrarMensaje("❌ Alumno o Usuario no encontrado.", "#dc2626");
       }
-      actualizarTotal();
+    } catch (err) {
+      mostrarMensaje("❌ Error al conectar con Google Sheets: " + err.message, "#dc2626");
+    }
+  }
+
+  // ==========================================
+  // 3. MOSTRAR PANEL Y GENERAR SEMANAS
+  // ==========================================
+  function mostrarPanelCobro(user, pagadas) {
+    document.getElementById('user-name').innerText = user.nombre;
+    document.getElementById('user-detail').innerText = `ID: ${user.id} | Grado: ${user.grado || '-'}`;
+    
+    fechasSeleccionadas = [];
+    actualizarResumen();
+
+    const hoy = new Date();
+    const lunesActual = getLunes(hoy);
+    const lunesSiguiente = new Date(lunesActual);
+    lunesSiguiente.setDate(lunesSiguiente.getDate() + 7);
+
+    renderGridDias('grid-semana-actual', lunesActual, pagadas);
+    renderGridDias('grid-semana-siguiente', lunesSiguiente, pagadas);
+
+    document.getElementById('panel-cobro').classList.remove('hidden');
+  }
+
+  function renderGridDias(containerId, lunes, pagadas) {
+    const container = document.getElementById(containerId);
+    container.innerHTML = "";
+    
+    const diasNombre = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie'];
+
+    for (let i = 0; i < 5; i++) {
+      const d = new Date(lunes);
+      d.setDate(d.getDate() + i);
+      
+      const isoFecha = d.toISOString().split('T')[0];
+      const diaNum = d.getDate();
+      const estaPagado = pagadas.includes(isoFecha);
+
+      const chip = document.createElement('div');
+      chip.className = `day-chip ${estaPagado ? 'paid' : ''}`;
+      chip.innerHTML = `
+        <span class="day-name">${diasNombre[i]}</span>
+        <span class="day-date">${diaNum}</span>
+        <span style="font-size:9px;">${estaPagado ? '✔ Pagado' : ''}</span>
+      `;
+
+      if (!estaPagado) {
+        chip.onclick = () => toggleDia(chip, isoFecha);
+      }
+
+      container.appendChild(chip);
+    }
+  }
+
+  function toggleDia(chipElement, fecha) {
+    const index = fechasSeleccionadas.indexOf(fecha);
+    if (index > -1) {
+      fechasSeleccionadas.splice(index, 1);
+      chipElement.classList.remove('selected');
+    } else {
+      fechasSeleccionadas.push(fecha);
+      chipElement.classList.add('selected');
+    }
+    actualizarResumen();
+  }
+
+  function actualizarResumen() {
+    const cant = fechasSeleccionadas.length;
+    const total = cant * PRECIO_DIA;
+    
+    document.getElementById('cant-dias').innerText = cant;
+    document.getElementById('total-monto').innerText = `$${total} MXN`;
+
+    const btn = document.getElementById('btn-cobrar');
+    if (cant > 0) {
+      btn.disabled = false;
+      btn.style.opacity = "1";
+      btn.innerText = `💳 Registrar Cobro (${cant} días - $${total})`;
+    } else {
+      btn.disabled = true;
+      btn.style.opacity = "0.5";
+      btn.innerText = "Selecciona al menos un día";
+    }
+  }
+
+  // ==========================================
+  // 4. PROCESAR EL PAGO
+  // ==========================================
+  async function procesarCobro() {
+    if (!usuarioActual || fechasSeleccionadas.length === 0) return;
+
+    const pass = document.getElementById('pass-gestor').value;
+    const gestor = document.getElementById('nombre-gestor').value;
+
+    if (!gestor.trim()) {
+      alert("Por favor ingresa el nombre del cajero/gestor.");
+      return;
     }
 
-    function actualizarTotal() {
-      document.getElementById('total-pago').innerText = `$${fechasSeleccionadas.length * 30} MXN`;
-    }
+    mostrarMensaje("Registrando pago...", "#2563eb");
 
-    function procesarPago() {
-      if (fechasSeleccionadas.length === 0) return alert("Selecciona al menos un día para cobrar.");
-
-      fetch(GAS_URL, {
-        method: "POST",
-        body: JSON.stringify({
-          pass: appPassword,
-          gestor: gestorNombre,
-          action: "registrarPago",
-          id: usuarioSeleccionado.id,
-          fechas: fechasSeleccionadas
-        })
-      })
-      .then(res => res.json())
-      .then(data => {
-        if (data.success) {
-          alert(data.message);
-          document.getElementById('modulo-calendario').classList.add('hidden');
-          document.getElementById('res-busqueda-cobrar').classList.add('hidden');
-          document.getElementById('busqueda-cobrar').value = "";
-        } else {
-          alert("Error: " + data.message);
-        }
-      })
-      .catch(() => alert("Error al procesar el pago en el servidor."));
-    }
-
-    // --- PROCESO DE ENTREGA ---
-    function validarEntrega(idUsuario) {
-      const resBox = document.getElementById('res-entrega');
-      resBox.classList.remove('hidden', 'bg-green-100', 'text-green-800', 'bg-red-100', 'text-red-800', 'bg-yellow-100', 'text-yellow-800');
-      resBox.innerHTML = "Verificando...";
-
-      fetch(GAS_URL, {
-        method: "POST",
-        body: JSON.stringify({ action: "verificarYEntregar", id: idUsuario })
-      })
-      .then(res => res.json())
-      .then(data => {
-        resBox.innerText = data.message;
-        if (data.status === "ENTREGADO") {
-          resBox.classList.add('bg-green-100', 'text-green-800');
-        } else if (data.status === "RECHAZADO_YA_ENTREGADO") {
-          resBox.classList.add('bg-yellow-100', 'text-yellow-800');
-        } else {
-          resBox.classList.add('bg-red-100', 'text-red-800');
-        }
+    try {
+      const res = await apiCall({
+        action: "registrarPago",
+        id: usuarioActual.id,
+        fechas: fechasSeleccionadas,
+        pass: pass,
+        gestor: gestor
       });
-    }
 
-    // --- COCINA ---
-    function cargarReporteCocina() {
-      fetch(GAS_URL, {
-        method: "POST",
-        body: JSON.stringify({ action: "obtenerReporteCocina" })
-      })
-      .then(res => res.json())
-      .then(data => {
-        if (data.success) {
-          document.getElementById('cocina-fecha').innerText = `Fecha: ${data.fecha}`;
-          document.getElementById('rep-pagados').innerText = data.pagados;
-          document.getElementById('rep-entregados').innerText = data.entregados;
-          document.getElementById('rep-pendientes').innerText = data.pendientes;
-        }
-      });
+      if (res.success) {
+        mostrarMensaje(`✅ ${res.message}`, "#16a34a");
+        document.getElementById('panel-cobro').classList.add('hidden');
+        document.getElementById('input-search').value = "";
+      } else {
+        mostrarMensaje(`❌ ${res.message}`, "#dc2626");
+      }
+    } catch (err) {
+      mostrarMensaje("❌ Error registrando el pago: " + err.message, "#dc2626");
     }
-  </script>
+  }
+
+  // Helpers
+  function getLunes(d) {
+    const date = new Date(d);
+    const day = date.getDay();
+    const diff = date.getDate() - day + (day === 0 ? -6 : 1);
+    return new Date(date.setDate(diff));
+  }
+
+  function mostrarMensaje(txt, color) {
+    const el = document.getElementById('status-msg');
+    el.innerText = txt;
+    el.style.background = color;
+    el.style.color = "white";
+    el.classList.remove('hidden');
+  }
+
+  function ocultarMensaje() {
+    document.getElementById('status-msg').classList.add('hidden');
+  }
+
+  window.onload = iniciarEscaner;
+</script>
 </body>
 </html>
