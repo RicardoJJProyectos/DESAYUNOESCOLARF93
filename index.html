@@ -1,1 +1,261 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Desayunos Escolares</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lector QR -->
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+</head>
+<body class="bg-gray-100 text-gray-800 font-sans">
 
+    <!-- LOGIN -->
+    <div id="loginScreen" class="h-screen flex flex-col justify-center items-center p-4">
+        <div class="bg-white p-6 rounded-xl shadow-lg w-full max-w-sm">
+            <h1 class="text-2xl font-bold text-center mb-4 text-blue-600">Desayunos App</h1>
+            <input type="password" id="passwordInput" placeholder="Contraseña de acceso" class="w-full p-3 border rounded mb-4 focus:outline-none focus:ring-2 focus:ring-blue-400">
+            <button onclick="iniciarSesion()" class="w-full bg-blue-600 text-white p-3 rounded font-bold">Ingresar</button>
+        </div>
+    </div>
+
+    <!-- MENÚ PRINCIPAL -->
+    <div id="mainScreen" class="hidden min-h-screen flex flex-col">
+        <header class="bg-blue-600 text-white p-4 shadow-md flex justify-between items-center">
+            <h1 class="text-xl font-bold">Gestión de Desayunos</h1>
+            <button onclick="cerrarSesion()" class="text-sm bg-blue-800 px-3 py-1 rounded">Salir</button>
+        </header>
+
+        <div class="p-4 grid gap-4 grid-cols-1">
+            <button onclick="abrirModulo('entregar')" class="bg-green-500 text-white p-6 rounded-xl shadow-md text-xl font-bold">🍏 Entregar Desayuno</button>
+            <button onclick="abrirModulo('cobrar')" class="bg-yellow-500 text-white p-6 rounded-xl shadow-md text-xl font-bold">💰 Cobrar Semana(s)</button>
+            <button onclick="verOrdenesDia()" class="bg-indigo-500 text-white p-6 rounded-xl shadow-md text-xl font-bold">📋 Órdenes de Hoy</button>
+            <button onclick="hacerCorteCaja()" class="bg-gray-700 text-white p-6 rounded-xl shadow-md text-xl font-bold">📊 Corte de Caja</button>
+        </div>
+
+        <!-- LECTOR QR -->
+        <div id="qrContainer" class="hidden p-4">
+            <h2 id="qrTitulo" class="text-xl font-bold mb-2 text-center">Escanea el QR</h2>
+            <div id="reader" class="w-full rounded overflow-hidden shadow-lg border-2 border-blue-400 bg-white"></div>
+            <button onclick="cerrarLector()" class="mt-4 w-full bg-red-500 text-white p-3 rounded font-bold">Cancelar Lector</button>
+            
+            <div class="mt-6 bg-white p-4 rounded shadow-md">
+                <p class="mb-2 font-bold">¿No trae QR? Búscalo:</p>
+                <input type="text" id="busquedaManual" placeholder="Escribe el nombre..." class="w-full p-2 border rounded mb-2">
+                <button onclick="buscarManual()" class="bg-blue-500 text-white p-2 rounded w-full font-bold">Buscar Manualmente</button>
+                <div id="resultadosBusqueda" class="mt-2 text-left max-h-40 overflow-y-auto"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL ÓRDENES DEL DÍA -->
+    <div id="ordenesContainer" class="hidden fixed top-0 left-0 w-full h-full bg-white p-4 overflow-y-auto z-50">
+        <h2 class="text-2xl font-bold mb-4 text-center text-indigo-600">Desayunos de Hoy</h2>
+        <div id="listaOrdenes" class="mb-4"></div>
+        <button onclick="cerrarModal('ordenesContainer')" class="w-full bg-red-500 text-white p-3 rounded font-bold mt-4 shadow-lg">Cerrar Lista</button>
+    </div>
+
+    <!-- MODAL CALENDARIO PARA COBRAR -->
+    <div id="cobroContainer" class="hidden fixed top-0 left-0 w-full h-full bg-white p-4 overflow-y-auto z-50">
+        <h2 class="text-2xl font-bold mb-2 text-center text-yellow-600">Seleccionar Días</h2>
+        <p id="cobroAlumnoNombre" class="text-center font-bold text-gray-700 mb-4"></p>
+        <div id="listaFechas" class="grid grid-cols-2 gap-2 mb-4"></div>
+        <div class="flex gap-2">
+            <button onclick="cerrarModal('cobroContainer')" class="w-1/3 bg-gray-500 text-white p-3 rounded font-bold">Cancelar</button>
+            <button onclick="procesarCobroSeleccionado()" class="w-2/3 bg-yellow-500 text-white p-3 rounded font-bold shadow-lg">Confirmar Cobro</button>
+        </div>
+    </div>
+
+    <script>
+        // --- CONFIGURACIÓN ---
+        const URL_SCRIPT = "https://script.google.com/macros/s/AKfycbwy04JiTDX-KzrZOrYLxcoojMIno_Jf3nJidinwMA7qMu3AzTEJra3umravlcNGwxnHew/exec"; 
+        
+        let passwordGuardada = "";
+        let accionActual = ""; 
+        let html5QrcodeScanner;
+        let alumnoSeleccionado = ""; // Guarda el ID para el cobro
+
+        function iniciarSesion() {
+            passwordGuardada = document.getElementById("passwordInput").value;
+            if(passwordGuardada.trim() === "") return alert("Ingresa la contraseña");
+            document.getElementById("loginScreen").classList.add("hidden");
+            document.getElementById("mainScreen").classList.remove("hidden");
+        }
+
+        function cerrarSesion() {
+            passwordGuardada = "";
+            document.getElementById("passwordInput").value = "";
+            document.getElementById("mainScreen").classList.add("hidden");
+            document.getElementById("loginScreen").classList.remove("hidden");
+            cerrarLector();
+        }
+
+        function abrirModulo(accion) {
+            accionActual = accion;
+            document.getElementById("qrTitulo").innerText = accion === 'entregar' ? "🍏 Escanear para Entregar" : "💰 Escanear para Cobrar";
+            document.getElementById("qrContainer").classList.remove("hidden");
+            
+            html5QrcodeScanner = new Html5Qrcode("reader");
+            const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+            html5QrcodeScanner.start({ facingMode: "environment" }, config, onScanSuccess, (e)=>{} );
+        }
+
+        function cerrarLector() {
+            if (html5QrcodeScanner) html5QrcodeScanner.stop().catch(err => console.log(err));
+            document.getElementById("qrContainer").classList.add("hidden");
+            document.getElementById("resultadosBusqueda").innerHTML = "";
+            document.getElementById("busquedaManual").value = "";
+        }
+
+        function cerrarModal(id) {
+            document.getElementById(id).classList.add("hidden");
+        }
+
+        function onScanSuccess(decodedText) {
+            cerrarLector(); 
+            procesarUsuario(decodedText);
+        }
+
+        function procesarUsuario(idUsuario) {
+            if (accionActual === "entregar") {
+                registrarEntrega(idUsuario);
+            } else if (accionActual === "cobrar") {
+                alumnoSeleccionado = idUsuario;
+                mostrarCalendarioCobro(idUsuario);
+            }
+        }
+
+        // --- SISTEMA DE COBRO (CALENDARIO) ---
+        function mostrarCalendarioCobro(idUsuario) {
+            document.getElementById("cobroAlumnoNombre").innerText = "ID: " + idUsuario;
+            let contenedorFechas = document.getElementById("listaFechas");
+            contenedorFechas.innerHTML = "";
+            
+            // Generar los próximos 20 días hábiles
+            let fechas = [];
+            let f = new Date();
+            while(fechas.length < 20) {
+                let diaSemana = f.getDay();
+                if(diaSemana !== 0 && diaSemana !== 6) { // Ignorar Sábado(6) y Domingo(0)
+                    let iso = f.toISOString().split('T')[0];
+                    let fechaMostrada = f.toLocaleDateString('es-MX', { weekday: 'short', month: 'short', day: 'numeric' });
+                    fechas.push({ valor: iso, etiqueta: fechaMostrada });
+                }
+                f.setDate(f.getDate() + 1);
+            }
+
+            fechas.forEach(fecha => {
+                contenedorFechas.innerHTML += `
+                    <label class="flex items-center p-3 bg-gray-100 rounded border cursor-pointer hover:bg-gray-200">
+                        <input type="checkbox" value="${fecha.valor}" class="dia-cobro w-5 h-5 mr-2 text-yellow-500">
+                        <span class="text-sm font-bold">${fecha.etiqueta}</span>
+                    </label>
+                `;
+            });
+            document.getElementById("cobroContainer").classList.remove("hidden");
+        }
+
+        function procesarCobroSeleccionado() {
+            let checkboxes = document.querySelectorAll('.dia-cobro:checked');
+            let diasSeleccionados = Array.from(checkboxes).map(cb => cb.value);
+            
+            if(diasSeleccionados.length === 0) return alert("Debes seleccionar al menos un día.");
+            
+            cerrarModal('cobroContainer');
+            alert(`Registrando ${diasSeleccionados.length} días de pago... Espera.`);
+            
+            fetch(URL_SCRIPT, {
+                method: "POST",
+                body: JSON.stringify({
+                    password: passwordGuardada,
+                    accion: "cobrar",
+                    id_usuario: alumnoSeleccionado,
+                    fechas: diasSeleccionados
+                })
+            })
+            .then(res => res.json())
+            .then(data => alert(data.exito ? "✅ " + data.mensaje : "❌ " + data.mensaje))
+            .catch(() => alert("Error de red"));
+        }
+
+        // --- PETICIONES A GOOGLE SHEETS ---
+
+        function registrarEntrega(idUsuario) {
+            alert("Validando pago en la BD... Espera.");
+            fetch(URL_SCRIPT, {
+                method: "POST",
+                body: JSON.stringify({ password: passwordGuardada, accion: "entregar", id_usuario: idUsuario })
+            })
+            .then(res => res.json())
+            .then(data => alert(data.exito ? "✅ " + data.mensaje : "❌ " + data.mensaje))
+            .catch(() => alert("Error de red"));
+        }
+
+        function verOrdenesDia() {
+            document.getElementById("ordenesContainer").classList.remove("hidden");
+            document.getElementById("listaOrdenes").innerHTML = "<p class='text-center mt-10 font-bold'>Cargando...</p>";
+
+            fetch(URL_SCRIPT, {
+                method: "POST",
+                body: JSON.stringify({ password: passwordGuardada, accion: "ordenes_dia" })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.exito) {
+                    let html = `<p class='text-center font-bold mb-4 bg-indigo-100 p-2 rounded'>Total a preparar: ${data.ordenes.length}</p>`;
+                    if (data.ordenes.length === 0) html += "<p class='text-center text-gray-500'>Nadie ha pagado para hoy.</p>";
+                    data.ordenes.forEach(o => {
+                        let ok = o.estado === 'Entregado';
+                        html += `
+                        <div class="p-3 mb-2 rounded border flex justify-between items-center ${ok ? 'bg-green-100 border-green-300' : 'bg-orange-100 border-orange-300'}">
+                            <div><p class="font-bold text-gray-800">${o.nombre}</p><p class="text-xs text-gray-600">ID: ${o.id}</p></div>
+                            <div class="font-bold ${ok ? 'text-green-700' : 'text-orange-600'}">${ok ? '✅' : '⏳'} ${o.estado}</div>
+                        </div>`;
+                    });
+                    document.getElementById("listaOrdenes").innerHTML = html;
+                } else alert(data.mensaje);
+            }).catch(() => document.getElementById("listaOrdenes").innerHTML = "Error de red.");
+        }
+
+        function hacerCorteCaja() {
+            alert("Calculando corte... Espera.");
+            fetch(URL_SCRIPT, {
+                method: "POST",
+                body: JSON.stringify({ password: passwordGuardada, accion: "corte" })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if(data.exito) alert(`📊 CORTE DE HOY\n\nDinero cobrado hoy: $${data.cobrado}\nDesayunos entregados hoy: ${data.entregados}`);
+                else alert(data.mensaje);
+            });
+        }
+
+        function buscarManual() {
+            let nombre = document.getElementById("busquedaManual").value;
+            if(nombre.length < 3) return alert("Escribe al menos 3 letras");
+            
+            document.getElementById("resultadosBusqueda").innerHTML = "Buscando...";
+            fetch(URL_SCRIPT, {
+                method: "POST",
+                body: JSON.stringify({ password: passwordGuardada, accion: "buscar_manual", nombre: nombre })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if(data.exito && data.resultados.length > 0) {
+                    let html = "";
+                    data.resultados.forEach(u => {
+                        html += `<div class="bg-gray-200 p-2 my-1 rounded flex justify-between items-center">
+                                    <span class="font-bold text-sm truncate max-w-[70%]">${u.nombre}</span>
+                                    <button onclick="cerrarLector(); procesarUsuario('${u.id}')" class="bg-blue-600 text-white px-2 py-1 rounded text-xs">Elegir</button>
+                                 </div>`;
+                    });
+                    document.getElementById("resultadosBusqueda").innerHTML = html;
+                } else {
+                    document.getElementById("resultadosBusqueda").innerHTML = "No se encontró el alumno.";
+                }
+            });
+        }
+    </script>
+</body>
+</html>
