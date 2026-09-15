@@ -11,20 +11,10 @@
 </head>
 <body class="bg-gray-100 text-gray-800 font-sans">
 
-    <!-- LOGIN -->
-    <div id="loginScreen" class="h-screen flex flex-col justify-center items-center p-4">
-        <div class="bg-white p-6 rounded-xl shadow-lg w-full max-w-sm">
-            <h1 class="text-2xl font-bold text-center mb-4 text-blue-600">Desayunos App</h1>
-            <input type="password" id="passwordInput" placeholder="Contraseña de acceso" class="w-full p-3 border rounded mb-4 focus:outline-none focus:ring-2 focus:ring-blue-400">
-            <button onclick="iniciarSesion()" class="w-full bg-blue-600 text-white p-3 rounded font-bold">Ingresar</button>
-        </div>
-    </div>
-
-    <!-- MENÚ PRINCIPAL -->
-    <div id="mainScreen" class="hidden min-h-screen flex flex-col">
-        <header class="bg-blue-600 text-white p-4 shadow-md flex justify-between items-center">
+    <!-- MENÚ PRINCIPAL (Abre directo) -->
+    <div id="mainScreen" class="min-h-screen flex flex-col">
+        <header class="bg-blue-600 text-white p-4 shadow-md flex justify-center items-center">
             <h1 class="text-xl font-bold">Gestión de Desayunos</h1>
-            <button onclick="cerrarSesion()" class="text-sm bg-blue-800 px-3 py-1 rounded">Salir</button>
         </header>
 
         <div class="p-4 grid gap-4 grid-cols-1">
@@ -38,12 +28,12 @@
         <div id="qrContainer" class="hidden p-4">
             <h2 id="qrTitulo" class="text-xl font-bold mb-2 text-center">Escanea el QR</h2>
             <div id="reader" class="w-full rounded overflow-hidden shadow-lg border-2 border-blue-400 bg-white"></div>
-            <button onclick="cerrarLector()" class="mt-4 w-full bg-red-500 text-white p-3 rounded font-bold">Cancelar Lector</button>
+            <button onclick="cerrarLector()" class="mt-4 w-full bg-red-500 text-white p-3 rounded font-bold shadow-lg">Volver al Menú</button>
             
             <div class="mt-6 bg-white p-4 rounded shadow-md">
-                <p class="mb-2 font-bold">¿No trae QR? Búscalo:</p>
-                <input type="text" id="busquedaManual" placeholder="Escribe el nombre..." class="w-full p-2 border rounded mb-2">
-                <button onclick="buscarManual()" class="bg-blue-500 text-white p-2 rounded w-full font-bold">Buscar Manualmente</button>
+                <p class="mb-2 font-bold text-gray-700">¿No trae QR? Búscalo:</p>
+                <input type="text" id="busquedaManual" placeholder="Escribe el nombre..." class="w-full p-3 border rounded mb-2 text-lg">
+                <button onclick="buscarManual()" class="bg-blue-500 text-white p-3 rounded w-full font-bold">Buscar Manualmente</button>
                 <div id="resultadosBusqueda" class="mt-2 text-left max-h-40 overflow-y-auto"></div>
             </div>
         </div>
@@ -69,27 +59,12 @@
 
     <script>
         // --- CONFIGURACIÓN ---
+        // Pega tu enlace de Google Apps Script aquí:
         const URL_SCRIPT = "https://script.google.com/macros/s/AKfycbwy04JiTDX-KzrZOrYLxcoojMIno_Jf3nJidinwMA7qMu3AzTEJra3umravlcNGwxnHew/exec"; 
         
-        let passwordGuardada = "";
         let accionActual = ""; 
         let html5QrcodeScanner;
-        let alumnoSeleccionado = ""; // Guarda el ID para el cobro
-
-        function iniciarSesion() {
-            passwordGuardada = document.getElementById("passwordInput").value;
-            if(passwordGuardada.trim() === "") return alert("Ingresa la contraseña");
-            document.getElementById("loginScreen").classList.add("hidden");
-            document.getElementById("mainScreen").classList.remove("hidden");
-        }
-
-        function cerrarSesion() {
-            passwordGuardada = "";
-            document.getElementById("passwordInput").value = "";
-            document.getElementById("mainScreen").classList.add("hidden");
-            document.getElementById("loginScreen").classList.remove("hidden");
-            cerrarLector();
-        }
+        let alumnoSeleccionado = ""; 
 
         function abrirModulo(accion) {
             accionActual = accion;
@@ -102,7 +77,9 @@
         }
 
         function cerrarLector() {
-            if (html5QrcodeScanner) html5QrcodeScanner.stop().catch(err => console.log(err));
+            if (html5QrcodeScanner) {
+                html5QrcodeScanner.stop().catch(err => console.log(err));
+            }
             document.getElementById("qrContainer").classList.add("hidden");
             document.getElementById("resultadosBusqueda").innerHTML = "";
             document.getElementById("busquedaManual").value = "";
@@ -126,18 +103,16 @@
             }
         }
 
-        // --- SISTEMA DE COBRO (CALENDARIO) ---
         function mostrarCalendarioCobro(idUsuario) {
             document.getElementById("cobroAlumnoNombre").innerText = "ID: " + idUsuario;
             let contenedorFechas = document.getElementById("listaFechas");
             contenedorFechas.innerHTML = "";
             
-            // Generar los próximos 20 días hábiles
             let fechas = [];
             let f = new Date();
             while(fechas.length < 20) {
                 let diaSemana = f.getDay();
-                if(diaSemana !== 0 && diaSemana !== 6) { // Ignorar Sábado(6) y Domingo(0)
+                if(diaSemana !== 0 && diaSemana !== 6) { 
                     let iso = f.toISOString().split('T')[0];
                     let fechaMostrada = f.toLocaleDateString('es-MX', { weekday: 'short', month: 'short', day: 'numeric' });
                     fechas.push({ valor: iso, etiqueta: fechaMostrada });
@@ -163,12 +138,10 @@
             if(diasSeleccionados.length === 0) return alert("Debes seleccionar al menos un día.");
             
             cerrarModal('cobroContainer');
-            alert(`Registrando ${diasSeleccionados.length} días de pago... Espera.`);
             
             fetch(URL_SCRIPT, {
                 method: "POST",
                 body: JSON.stringify({
-                    password: passwordGuardada,
                     accion: "cobrar",
                     id_usuario: alumnoSeleccionado,
                     fechas: diasSeleccionados
@@ -179,13 +152,10 @@
             .catch(() => alert("Error de red"));
         }
 
-        // --- PETICIONES A GOOGLE SHEETS ---
-
         function registrarEntrega(idUsuario) {
-            alert("Validando pago en la BD... Espera.");
             fetch(URL_SCRIPT, {
                 method: "POST",
-                body: JSON.stringify({ password: passwordGuardada, accion: "entregar", id_usuario: idUsuario })
+                body: JSON.stringify({ accion: "entregar", id_usuario: idUsuario })
             })
             .then(res => res.json())
             .then(data => alert(data.exito ? "✅ " + data.mensaje : "❌ " + data.mensaje))
@@ -194,17 +164,17 @@
 
         function verOrdenesDia() {
             document.getElementById("ordenesContainer").classList.remove("hidden");
-            document.getElementById("listaOrdenes").innerHTML = "<p class='text-center mt-10 font-bold'>Cargando...</p>";
+            document.getElementById("listaOrdenes").innerHTML = "<p class='text-center mt-10 font-bold text-gray-500'>Cargando órdenes...</p>";
 
             fetch(URL_SCRIPT, {
                 method: "POST",
-                body: JSON.stringify({ password: passwordGuardada, accion: "ordenes_dia" })
+                body: JSON.stringify({ accion: "ordenes_dia" })
             })
             .then(res => res.json())
             .then(data => {
                 if (data.exito) {
-                    let html = `<p class='text-center font-bold mb-4 bg-indigo-100 p-2 rounded'>Total a preparar: ${data.ordenes.length}</p>`;
-                    if (data.ordenes.length === 0) html += "<p class='text-center text-gray-500'>Nadie ha pagado para hoy.</p>";
+                    let html = `<p class='text-center font-bold mb-4 bg-indigo-100 p-2 rounded text-indigo-800'>Total a preparar hoy: ${data.ordenes.length}</p>`;
+                    if (data.ordenes.length === 0) html += "<p class='text-center text-gray-500 font-bold'>Nadie ha pagado para hoy.</p>";
                     data.ordenes.forEach(o => {
                         let ok = o.estado === 'Entregado';
                         html += `
@@ -215,46 +185,47 @@
                     });
                     document.getElementById("listaOrdenes").innerHTML = html;
                 } else alert(data.mensaje);
-            }).catch(() => document.getElementById("listaOrdenes").innerHTML = "Error de red.");
+            }).catch(() => document.getElementById("listaOrdenes").innerHTML = "<p class='text-red-500 text-center'>Error de red.</p>");
         }
 
         function hacerCorteCaja() {
-            alert("Calculando corte... Espera.");
             fetch(URL_SCRIPT, {
                 method: "POST",
-                body: JSON.stringify({ password: passwordGuardada, accion: "corte" })
+                body: JSON.stringify({ accion: "corte" })
             })
             .then(res => res.json())
             .then(data => {
                 if(data.exito) alert(`📊 CORTE DE HOY\n\nDinero cobrado hoy: $${data.cobrado}\nDesayunos entregados hoy: ${data.entregados}`);
                 else alert(data.mensaje);
-            });
+            })
+            .catch(() => alert("Error de red"));
         }
 
         function buscarManual() {
             let nombre = document.getElementById("busquedaManual").value;
             if(nombre.length < 3) return alert("Escribe al menos 3 letras");
             
-            document.getElementById("resultadosBusqueda").innerHTML = "Buscando...";
+            document.getElementById("resultadosBusqueda").innerHTML = "<p class='text-gray-500'>Buscando...</p>";
             fetch(URL_SCRIPT, {
                 method: "POST",
-                body: JSON.stringify({ password: passwordGuardada, accion: "buscar_manual", nombre: nombre })
+                body: JSON.stringify({ accion: "buscar_manual", nombre: nombre })
             })
             .then(res => res.json())
             .then(data => {
                 if(data.exito && data.resultados.length > 0) {
                     let html = "";
                     data.resultados.forEach(u => {
-                        html += `<div class="bg-gray-200 p-2 my-1 rounded flex justify-between items-center">
+                        html += `<div class="bg-gray-200 p-3 my-2 rounded flex justify-between items-center shadow-sm">
                                     <span class="font-bold text-sm truncate max-w-[70%]">${u.nombre}</span>
-                                    <button onclick="cerrarLector(); procesarUsuario('${u.id}')" class="bg-blue-600 text-white px-2 py-1 rounded text-xs">Elegir</button>
+                                    <button onclick="cerrarLector(); procesarUsuario('${u.id}')" class="bg-blue-600 text-white px-3 py-1 rounded font-bold shadow">Elegir</button>
                                  </div>`;
                     });
                     document.getElementById("resultadosBusqueda").innerHTML = html;
                 } else {
-                    document.getElementById("resultadosBusqueda").innerHTML = "No se encontró el alumno.";
+                    document.getElementById("resultadosBusqueda").innerHTML = "<p class='text-red-500 font-bold'>No se encontró el alumno.</p>";
                 }
-            });
+            })
+            .catch(() => document.getElementById("resultadosBusqueda").innerHTML = "<p class='text-red-500 font-bold'>Error de red.</p>");
         }
     </script>
 </body>
