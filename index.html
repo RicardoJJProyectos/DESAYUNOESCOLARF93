@@ -25,10 +25,10 @@
     <button id="tab-cocina" onclick="cambiarTab('cocina')" class="flex-1 py-3 text-center font-bold text-gray-500 border-b-4 border-transparent">3. Cocina</button>
   </div>
 
-  <!-- SECCIÓN 1: ENTREGAR DESAYUNO (RÁPIDO) -->
+  <!-- SECCIÓN 1: ENTREGAR DESAYUNO -->
   <main id="view-entregar" class="p-4 max-w-md mx-auto w-full flex-1">
     <div class="bg-white p-4 rounded-xl shadow mb-4">
-      <h2 class="font-bold text-gray-700 mb-2">Escanear QR para Entregar</h2>
+      <h2 class="font-bold text-gray-700 mb-2">Escanear QR o Buscar Alumno</h2>
       <div id="reader-entregar" class="w-full rounded overflow-hidden mb-3"></div>
       
       <div class="flex gap-2">
@@ -37,13 +37,17 @@
       </div>
     </div>
 
-    <div id="res-entrega" class="hidden p-4 rounded-xl text-center font-bold text-lg shadow"></div>
+    <!-- LISTADO DE RESULTADOS DE BÚSQUEDA MANUAL -->
+    <div id="lista-busqueda-entregar" class="hidden space-y-2 mb-4"></div>
+
+    <!-- ALERTA RESULTADO DE ENTREGA -->
+    <div id="res-entrega" class="hidden p-4 rounded-xl text-center font-bold text-base shadow"></div>
   </main>
 
   <!-- SECCIÓN 2: COBRAR SERVICIO -->
   <main id="view-cobrar" class="hidden p-4 max-w-md mx-auto w-full flex-1">
     
-    <!-- Modulo Autenticación (Solo si no ha iniciado sesión) -->
+    <!-- Modulo Autenticación -->
     <div id="auth-cobro-box" class="bg-white p-4 rounded-xl shadow mb-4">
       <h3 class="font-bold text-blue-600 mb-2">Alta / Registro de Gestor para Cobro</h3>
       <p class="text-xs text-gray-500 mb-3">Ingresa tus datos una sola vez para iniciar tu turno de cobro.</p>
@@ -63,12 +67,15 @@
         </div>
       </div>
 
+      <!-- LISTADO DE RESULTADOS COBRO -->
+      <div id="lista-busqueda-cobrar" class="hidden space-y-2 mb-4"></div>
+
       <div id="res-busqueda-cobrar" class="hidden bg-white p-4 rounded-xl shadow mb-4"></div>
 
-      <!-- CALENDARIO EXTENDIDO A 1 MES (4 SEMANAS) -->
+      <!-- CALENDARIO EXTENDIDO A 1 MES (4 SEMANAS) CON PREVENCIÓN DE COBRO DOBLE -->
       <div id="modulo-calendario" class="hidden bg-white p-4 rounded-xl shadow mb-6">
         <h3 class="font-bold text-gray-700 mb-1">Selecciona los días ($30 c/u):</h3>
-        <p class="text-xs text-gray-500 mb-3">Semana actual y próximas 3 semanas disponibles.</p>
+        <p class="text-xs text-gray-500 mb-3">Semana actual y próximas 3 semanas. Días pagados previamente deshabilitados.</p>
         
         <div id="contenedor-dias" class="space-y-4 mb-4"></div>
         
@@ -116,13 +123,14 @@
     let html5QrCodeEntregar = null;
     let usuarioSeleccionado = null;
     let fechasSeleccionadas = [];
+    let fechasPagadasUsuario = [];
 
     window.onload = () => {
       iniciarLectorQR('entregar');
       comprobarSesionGestor();
     };
 
-    // --- MANEJO DE SESIÓN DEL GESTOR (PERSISTENTE) ---
+    // --- SESIÓN DEL GESTOR ---
     function comprobarSesionGestor() {
       const pGuardada = localStorage.getItem('appPassword');
       const gGuardado = localStorage.getItem('gestorNombre');
@@ -149,11 +157,8 @@
         if (data.success) {
           appPassword = p;
           gestorNombre = g;
-          
-          // Guardar en almacenamiento local del dispositivo
           localStorage.setItem('appPassword', appPassword);
           localStorage.setItem('gestorNombre', gestorNombre);
-
           mostrarPantallaCobroActiva();
           if (!document.getElementById('view-cobrar').classList.contains('hidden')) {
             iniciarLectorQR('cobrar');
@@ -162,7 +167,7 @@
           alert("Contraseña incorrecta.");
         }
       })
-      .catch(() => alert("Error al verificar credenciales. Revisa tu conexión."));
+      .catch(() => alert("Error de conexión al autenticar."));
     }
 
     function mostrarPantallaCobroActiva() {
@@ -239,10 +244,10 @@
       if (scanner && scanner.isScanning) scanner.stop();
     }
 
-    // --- BÚSQUEDA ---
+    // --- BÚSQUEDA Y MUESTRA DE LISTADO MANUAL ---
     function buscar(modo) {
       const query = document.getElementById(modo === 'cobrar' ? 'busqueda-cobrar' : 'busqueda-entregar').value;
-      if (!query) return alert("Escribe un nombre o ID");
+      if (!query) return alert("Escribe un nombre o ID para buscar.");
 
       fetch(GAS_URL, {
         method: "POST",
@@ -250,19 +255,71 @@
       })
       .then(res => res.json())
       .then(data => {
-        if (!data.success || data.usuarios.length === 0) return alert("No se encontró usuario.");
+        if (!data.success || data.usuarios.length === 0) return alert("No se encontraron coincidencias.");
 
-        if (modo === 'cobrar') {
-          mostrarSeleccionCobro(data.usuarios[0]);
+        if (modo === 'entregar') {
+          mostrarListadoEntregar(data.usuarios);
         } else {
-          validarEntrega(data.usuarios[0].id);
+          mostrarListadoCobrar(data.usuarios);
         }
       });
     }
 
-    // --- COBRO Y CALENDARIO DE 1 MES (4 SEMANAS) ---
-    function mostrarSeleccionCobro(usuario) {
+    // --- LISTADO PARA TAB ENTREGAR ---
+    function mostrarListadoEntregar(usuarios) {
+      const contenedor = document.getElementById('lista-busqueda-entregar');
+      contenedor.innerHTML = "";
+      contenedor.classList.remove('hidden');
+
+      usuarios.forEach(u => {
+        let card = document.createElement('div');
+        card.className = "bg-white p-3 rounded-lg shadow flex justify-between items-center border border-gray-200";
+        card.innerHTML = `
+          <div>
+            <p class="font-bold text-gray-800 text-sm">${u.nombre}</p>
+            <p class="text-xs text-gray-500">ID: ${u.id} | ${u.tipo} (${u.grado})</p>
+          </div>
+          <button onclick="seleccionarYEntregar('${u.id}')" class="bg-blue-600 hover:bg-blue-700 text-white text-xs px-3 py-2 rounded font-bold shadow">
+            Entregar
+          </button>
+        `;
+        contenedor.appendChild(card);
+      });
+    }
+
+    function seleccionarYEntregar(id) {
+      document.getElementById('lista-busqueda-entregar').classList.add('hidden');
+      validarEntrega(id);
+    }
+
+    // --- LISTADO PARA TAB COBRAR ---
+    function mostrarListadoCobrar(usuarios) {
+      const contenedor = document.getElementById('lista-busqueda-cobrar');
+      contenedor.innerHTML = "";
+      contenedor.classList.remove('hidden');
+      document.getElementById('modulo-calendario').classList.add('hidden');
+      document.getElementById('res-busqueda-cobrar').classList.add('hidden');
+
+      usuarios.forEach(u => {
+        let card = document.createElement('div');
+        card.className = "bg-white p-3 rounded-lg shadow flex justify-between items-center border border-gray-200";
+        card.innerHTML = `
+          <div>
+            <p class="font-bold text-gray-800 text-sm">${u.nombre}</p>
+            <p class="text-xs text-gray-500">ID: ${u.id} | ${u.tipo} (${u.grado})</p>
+          </div>
+          <button onclick='seleccionarUsuarioCobro(${JSON.stringify(u)})' class="bg-green-600 hover:bg-green-700 text-white text-xs px-3 py-2 rounded font-bold shadow">
+            Cobrar
+          </button>
+        `;
+        contenedor.appendChild(card);
+      });
+    }
+
+    function seleccionarUsuarioCobro(usuario) {
+      document.getElementById('lista-busqueda-cobrar').classList.add('hidden');
       usuarioSeleccionado = usuario;
+      
       const resDiv = document.getElementById('res-busqueda-cobrar');
       resDiv.innerHTML = `
         <p class="font-bold text-lg text-blue-900">${usuario.nombre}</p>
@@ -270,10 +327,20 @@
       `;
       resDiv.classList.remove('hidden');
 
-      generarCalendarioMes();
-      document.getElementById('modulo-calendario').classList.remove('hidden');
+      // Consultar fechas previamente pagadas para evitar cobro doble
+      fetch(GAS_URL, {
+        method: "POST",
+        body: JSON.stringify({ action: "obtenerFechasPagadas", id: usuario.id })
+      })
+      .then(res => res.json())
+      .then(data => {
+        fechasPagadasUsuario = data.fechasPagadas || [];
+        generarCalendarioMes();
+        document.getElementById('modulo-calendario').classList.remove('hidden');
+      });
     }
 
+    // --- CALENDARIO 1 MES (PREVINIENDO COBROS DOBLES) ---
     function generarCalendarioMes() {
       const contenedor = document.getElementById('contenedor-dias');
       contenedor.innerHTML = "";
@@ -281,14 +348,12 @@
       actualizarTotal();
 
       let hoy = new Date();
-      let diaSemana = hoy.getDay(); // 0: Dom, 1: Lun, ... 6: Sab
-      
-      // Encontrar el Lunes de la semana actual
+      let diaSemana = hoy.getDay();
       let diffLunes = (diaSemana === 0 ? -6 : 1 - diaSemana);
       let fechaInicio = new Date(hoy);
       fechaInicio.setDate(hoy.getDate() + diffLunes);
 
-      const nombresSemanas = ["Semana Actual", "Semana 2 (Siguiente)", "Semana 3", "Semana 4"];
+      const nombresSemanas = ["Semana Actual", "Semana 2 (Próxima)", "Semana 3", "Semana 4"];
 
       for (let s = 0; s < 4; s++) {
         let divSemana = document.createElement('div');
@@ -316,26 +381,33 @@
           let opciones = { weekday: 'short', day: 'numeric', month: 'short' };
           let nombreDia = fechaInicio.toLocaleDateString('es-ES', opciones);
 
+          let estaPagado = fechasPagadasUsuario.includes(isoDate);
+
           let btn = document.createElement('button');
           btn.type = "button";
-          btn.className = "p-2 border rounded text-left flex justify-between items-center bg-white hover:bg-gray-100 text-sm transition-all";
-          btn.innerHTML = `<span class="capitalize font-medium">${nombreDia}</span> <span class="font-bold text-slate-600">$30</span>`;
-          btn.onclick = () => alternarDia(btn, isoDate);
+
+          if (estaPagado) {
+            btn.className = "p-2 border rounded text-left flex justify-between items-center bg-emerald-50 border-emerald-300 text-emerald-700 text-sm cursor-not-allowed opacity-90";
+            btn.innerHTML = `<span class="capitalize font-medium">${nombreDia}</span> <span class="font-bold text-xs bg-emerald-200 text-emerald-800 px-2 py-0.5 rounded">✔ PAGADO</span>`;
+            btn.disabled = true;
+          } else {
+            btn.className = "p-2 border rounded text-left flex justify-between items-center bg-white hover:bg-gray-100 text-sm transition-all";
+            btn.innerHTML = `<span class="capitalize font-medium">${nombreDia}</span> <span class="font-bold text-slate-600">$30</span>`;
+            btn.onclick = () => alternarDia(btn, isoDate);
+            diasDeLaSemana.push({ element: btn, fecha: isoDate });
+          }
 
           gridDias.appendChild(btn);
-          diasDeLaSemana.push({ element: btn, fecha: isoDate });
-
-          // Avanzar al siguiente día hábil
           fechaInicio.setDate(fechaInicio.getDate() + 1);
         }
 
-        // Pasar de Viernes a Lunes (+2 días de fin de semana)
         fechaInicio.setDate(fechaInicio.getDate() + 2);
 
-        // Acción de botón + Toda la semana
         btnSemanaCompleta.onclick = () => {
-          let todasSeleccionadas = diasDeLaSemana.every(d => fechasSeleccionadas.includes(d.fecha));
-          diasDeLaSemana.forEach(d => {
+          let disponibles = diasDeLaSemana.filter(d => !fechasPagadasUsuario.includes(d.fecha));
+          let todasSeleccionadas = disponibles.every(d => fechasSeleccionadas.includes(d.fecha));
+
+          disponibles.forEach(d => {
             if (todasSeleccionadas) {
               if (fechasSeleccionadas.includes(d.fecha)) alternarDia(d.element, d.fecha);
             } else {
@@ -391,7 +463,7 @@
       .catch(() => alert("Error al procesar el pago en el servidor."));
     }
 
-    // --- ENTREGA (SIN PASSWORD) ---
+    // --- PROCESO DE ENTREGA ---
     function validarEntrega(idUsuario) {
       const resBox = document.getElementById('res-entrega');
       resBox.classList.remove('hidden', 'bg-green-100', 'text-green-800', 'bg-red-100', 'text-red-800', 'bg-yellow-100', 'text-yellow-800');
@@ -404,9 +476,13 @@
       .then(res => res.json())
       .then(data => {
         resBox.innerText = data.message;
-        if (data.status === "ENTREGADO") resBox.classList.add('bg-green-100', 'text-green-800');
-        else if (data.status === "YA_ENTREGADO") resBox.classList.add('bg-yellow-100', 'text-yellow-800');
-        else resBox.classList.add('bg-red-100', 'text-red-800');
+        if (data.status === "ENTREGADO") {
+          resBox.classList.add('bg-green-100', 'text-green-800');
+        } else if (data.status === "RECHAZADO_YA_ENTREGADO") {
+          resBox.classList.add('bg-yellow-100', 'text-yellow-800');
+        } else {
+          resBox.classList.add('bg-red-100', 'text-red-800');
+        }
       });
     }
 
@@ -429,4 +505,3 @@
   </script>
 </body>
 </html>
- 
