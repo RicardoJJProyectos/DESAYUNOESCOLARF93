@@ -18,24 +18,52 @@
         </header>
 
         <div class="p-4 grid gap-4 grid-cols-1">
-            <button onclick="abrirModulo('entregar')" class="bg-green-500 text-white p-6 rounded-xl shadow-md text-xl font-bold">🍏 Entregar Desayuno</button>
-            <button onclick="abrirModulo('cobrar')" class="bg-yellow-500 text-white p-6 rounded-xl shadow-md text-xl font-bold">💰 Cobrar Semana(s)</button>
-            <button onclick="verOrdenesDia()" class="bg-indigo-500 text-white p-6 rounded-xl shadow-md text-xl font-bold">📋 Órdenes de Hoy</button>
-            <button onclick="hacerCorteCaja()" class="bg-gray-700 text-white p-6 rounded-xl shadow-md text-xl font-bold">📊 Corte de Caja</button>
+            <button onclick="abrirModulo('entregar')" class="bg-green-500 hover:bg-green-600 text-white p-6 rounded-xl shadow-md text-xl font-bold transition-all">🍏 Entregar Desayuno</button>
+            <button onclick="abrirModulo('cobrar')" class="bg-yellow-500 hover:bg-yellow-600 text-white p-6 rounded-xl shadow-md text-xl font-bold transition-all">💰 Cobrar Semana(s)</button>
+            <button onclick="verOrdenesDia()" class="bg-indigo-500 hover:bg-indigo-600 text-white p-6 rounded-xl shadow-md text-xl font-bold transition-all">📋 Órdenes de Hoy</button>
+            <button onclick="hacerCorteCaja()" class="bg-gray-700 hover:bg-gray-800 text-white p-6 rounded-xl shadow-md text-xl font-bold transition-all">📊 Corte de Caja</button>
+        </div>
+    </div>
+
+    <!-- MODULO DE SELECCIÓN DE ALUMNO Y QR -->
+    <div id="moduloContainer" class="hidden fixed top-0 left-0 w-full h-full bg-white p-4 overflow-y-auto z-40">
+        <div class="flex justify-between items-center mb-4 pb-2 border-b">
+            <h2 id="moduloTitulo" class="text-2xl font-bold text-blue-600"></h2>
+            <button onclick="cerrarModulo()" class="bg-red-500 text-white px-4 py-2 rounded-lg font-bold shadow">✕ Volver</button>
         </div>
 
-        <!-- LECTOR QR Y BÚSQUEDA MANUAL -->
-        <div id="qrContainer" class="hidden p-4">
-            <h2 id="qrTitulo" class="text-xl font-bold mb-2 text-center">Escanea el QR</h2>
-            <div id="reader" class="w-full rounded overflow-hidden shadow-lg border-2 border-blue-400 bg-white"></div>
-            <button onclick="cerrarLector()" class="mt-4 w-full bg-red-500 text-white p-3 rounded font-bold shadow-lg">Volver al Menú</button>
-            
-            <div class="mt-6 bg-white p-4 rounded shadow-md">
-                <p class="mb-2 font-bold text-gray-700">¿No trae QR? Busca por ID, Nombre o Grupo:</p>
-                <input type="text" id="busquedaManual" placeholder="Ej: 1024, Juan, o 1A..." class="w-full p-3 border rounded mb-2 text-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-                <button onclick="buscarManual()" class="bg-blue-500 text-white p-3 rounded w-full font-bold">Buscar</button>
-                <div id="resultadosBusqueda" class="mt-3 text-left max-h-60 overflow-y-auto"></div>
-            </div>
+        <!-- FILTRO POR GRUPO -->
+        <div class="bg-gray-50 p-4 rounded-xl border border-gray-200 shadow-sm mb-4">
+            <label class="block text-sm font-bold text-gray-700 mb-2">1. Selecciona el Grupo del Alumno:</label>
+            <select id="selectGrupo" onchange="filtrarPorGrupo(this.value)" class="w-full p-3 border border-gray-300 rounded-lg text-lg bg-white font-semibold text-gray-800 shadow-sm focus:ring-2 focus:ring-blue-500">
+                <option value="">-- Elige un grupo --</option>
+                <option value="1A">1º A</option>
+                <option value="1B">1º B</option>
+                <option value="1C">1º C</option>
+                <option value="2A">2º A</option>
+                <option value="2B">2º B</option>
+                <option value="2C">2º C</option>
+                <option value="3A">3º A</option>
+                <option value="3B">3º B</option>
+                <option value="3C">3º C</option>
+            </select>
+        </div>
+
+        <!-- LISTA DE ALUMNOS DEL GRUPO SELECCIONADO -->
+        <div id="listaAlumnosGrupo" class="mb-6 space-y-2 max-h-72 overflow-y-auto"></div>
+
+        <!-- OPCIÓN SECUNDARIA: ESCÁNER QR -->
+        <div class="border-t pt-4 text-center">
+            <p class="text-sm text-gray-500 mb-2 font-medium">¿El alumno trae su credencial física?</p>
+            <button onclick="activarEscanerQR()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-xl shadow-md transition-all flex items-center justify-center mx-auto gap-2">
+                📷 Activar Escáner QR
+            </button>
+        </div>
+
+        <!-- CONTENEDOR DEL LECTOR QR (Oculto por defecto) -->
+        <div id="qrCamaraContainer" class="hidden mt-4 p-4 border-2 border-indigo-400 rounded-xl bg-gray-900 text-white">
+            <div id="reader" class="w-full rounded overflow-hidden"></div>
+            <button onclick="desactivarEscanerQR()" class="mt-3 w-full bg-red-600 text-white py-2 rounded-lg font-bold shadow">Cerrar Cámara</button>
         </div>
     </div>
 
@@ -43,68 +71,128 @@
     <div id="ordenesContainer" class="hidden fixed top-0 left-0 w-full h-full bg-white p-4 overflow-y-auto z-50">
         <h2 class="text-2xl font-bold mb-4 text-center text-indigo-600">Desayunos de Hoy</h2>
         <div id="listaOrdenes" class="mb-4"></div>
-        <button onclick="cerrarModal('ordenesContainer')" class="w-full bg-red-500 text-white p-3 rounded font-bold mt-4 shadow-lg">Cerrar Lista</button>
+        <button onclick="cerrarModal('ordenesContainer')" class="w-full bg-red-500 text-white p-3 rounded-lg font-bold mt-4 shadow-lg">Cerrar Lista</button>
     </div>
 
-    <!-- MODAL CALENDARIO PARA COBRAR -->
+    <!-- MODAL SELECCIÓN DE DÍAS PARA COBRAR (BOTONES) -->
     <div id="cobroContainer" class="hidden fixed top-0 left-0 w-full h-full bg-white p-4 overflow-y-auto z-50">
-        <h2 class="text-2xl font-bold mb-2 text-center text-yellow-600">Seleccionar Días</h2>
-        <p id="cobroAlumnoNombre" class="text-center font-bold text-gray-700 mb-4"></p>
-        <div id="listaFechas" class="grid grid-cols-2 gap-2 mb-4"></div>
+        <h2 class="text-2xl font-bold mb-1 text-center text-yellow-600">Seleccionar Días a Pagar</h2>
+        <p id="cobroAlumnoNombre" class="text-center font-bold text-gray-700 mb-4 bg-yellow-50 p-2 rounded border border-yellow-200"></p>
+        
+        <p class="text-xs font-bold text-gray-500 mb-2 uppercase tracking-wide">Toca los días para marcarlos/desmarcarlos:</p>
+        <div id="listaFechas" class="grid grid-cols-2 gap-3 mb-6"></div>
+        
         <div class="flex gap-2">
-            <button onclick="cerrarModal('cobroContainer')" class="w-1/3 bg-gray-500 text-white p-3 rounded font-bold">Cancelar</button>
-            <button onclick="procesarCobroSeleccionado()" class="w-2/3 bg-yellow-500 text-white p-3 rounded font-bold shadow-lg">Confirmar Cobro</button>
+            <button onclick="cerrarModal('cobroContainer')" class="w-1/3 bg-gray-500 text-white p-3 rounded-lg font-bold">Cancelar</button>
+            <button onclick="procesarCobroSeleccionado()" class="w-2/3 bg-yellow-500 hover:bg-yellow-600 text-white p-3 rounded-lg font-bold shadow-lg">Confirmar Cobro</button>
         </div>
     </div>
 
     <script>
         // --- CONFIGURACIÓN ---
         // Pega tu URL de Google Apps Script aquí:
-        const URL_SCRIPT = "https://script.google.com/macros/s/AKfycbwy04JiTDX-KzrZOrYLxcoojMIno_Jf3nJidinwMA7qMu3AzTEJra3umravlcNGwxnHew/exec"; 
+        const URL_SCRIPT = "URL_DE_TU_GOOGLE_SCRIPT_AQUI"; 
         
         let accionActual = ""; 
-        let html5QrcodeScanner;
+        let html5QrcodeScanner = null;
         let alumnoSeleccionado = ""; 
 
         function abrirModulo(accion) {
             accionActual = accion;
-            document.getElementById("qrTitulo").innerText = accion === 'entregar' ? "🍏 Escanear para Entregar" : "💰 Escanear para Cobrar";
-            document.getElementById("qrContainer").classList.remove("hidden");
-            
-            html5QrcodeScanner = new Html5Qrcode("reader");
-            const config = { fps: 10, qrbox: { width: 250, height: 250 } };
-            html5QrcodeScanner.start({ facingMode: "environment" }, config, onScanSuccess, (e)=>{} );
+            document.getElementById("moduloTitulo").innerText = accion === 'entregar' ? "🍏 Entregar Desayuno" : "💰 Cobrar Semana(s)";
+            document.getElementById("selectGrupo").value = "";
+            document.getElementById("listaAlumnosGrupo").innerHTML = "";
+            desactivarEscanerQR();
+            document.getElementById("moduloContainer").classList.remove("hidden");
         }
 
-        function cerrarLector() {
-            if (html5QrcodeScanner) {
-                html5QrcodeScanner.stop().catch(err => console.log(err));
-            }
-            document.getElementById("qrContainer").classList.add("hidden");
-            document.getElementById("resultadosBusqueda").innerHTML = "";
-            document.getElementById("busquedaManual").value = "";
+        function cerrarModulo() {
+            desactivarEscanerQR();
+            document.getElementById("moduloContainer").classList.add("hidden");
         }
 
         function cerrarModal(id) {
             document.getElementById(id).classList.add("hidden");
         }
 
-        function onScanSuccess(decodedText) {
-            cerrarLector(); 
-            procesarUsuario(decodedText);
+        // --- FILTRADO DE ALUMNOS POR GRUPO ---
+        function filtrarPorGrupo(grupo) {
+            let contenedor = document.getElementById("listaAlumnosGrupo");
+            if (!grupo) {
+                contenedor.innerHTML = "";
+                return;
+            }
+            
+            contenedor.innerHTML = "<p class='text-gray-500 font-bold text-center py-4'>Cargando alumnos de " + grupo + "...</p>";
+            
+            fetch(URL_SCRIPT, {
+                method: "POST",
+                body: JSON.stringify({ accion: "buscar_manual", busqueda: grupo })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if(data.exito && data.resultados.length > 0) {
+                    let html = "";
+                    data.resultados.forEach(u => {
+                        html += `
+                        <div onclick="seleccionarAlumno('${u.id}', '${u.nombre}')" class="bg-blue-50 hover:bg-blue-100 border border-blue-200 p-3 rounded-xl flex justify-between items-center cursor-pointer shadow-sm active:scale-98 transition-all">
+                            <div>
+                                <p class="font-bold text-gray-800">${u.nombre}</p>
+                                <p class="text-xs text-gray-500">ID: ${u.id}</p>
+                            </div>
+                            <span class="bg-blue-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow">Seleccionar</span>
+                        </div>`;
+                    });
+                    contenedor.innerHTML = html;
+                } else {
+                    contenedor.innerHTML = "<p class='text-red-500 font-bold text-center py-4'>No se encontraron alumnos en el grupo " + grupo + ".</p>";
+                }
+            })
+            .catch(() => contenedor.innerHTML = "<p class='text-red-500 font-bold text-center py-4'>Error al conectar con la base de datos.</p>");
         }
 
-        function procesarUsuario(idUsuario) {
+        function seleccionarAlumno(id, nombre) {
+            desactivarEscanerQR();
+            procesarUsuario(id, nombre);
+        }
+
+        // --- MANEJO DEL ESCÁNER QR DESACTIVADO POR DEFECTO ---
+        function activarEscanerQR() {
+            document.getElementById("qrCamaraContainer").classList.remove("hidden");
+            if (!html5QrcodeScanner) {
+                html5QrcodeScanner = new Html5Qrcode("reader");
+            }
+            const config = { fps: 10, qrbox: { width: 220, height: 220 } };
+            html5QrcodeScanner.start({ facingMode: "environment" }, config, onScanSuccess, (e)=>{} );
+        }
+
+        function desactivarEscanerQR() {
+            if (html5QrcodeScanner && html5QrcodeScanner.isScanning) {
+                html5QrcodeScanner.stop().then(() => {
+                    document.getElementById("qrCamaraContainer").classList.add("hidden");
+                }).catch(err => console.log(err));
+            } else {
+                document.getElementById("qrCamaraContainer").classList.add("hidden");
+            }
+        }
+
+        function onScanSuccess(decodedText) {
+            desactivarEscanerQR(); 
+            procesarUsuario(decodedText, "");
+        }
+
+        function procesarUsuario(idUsuario, nombreUsuario) {
             if (accionActual === "entregar") {
                 registrarEntrega(idUsuario);
             } else if (accionActual === "cobrar") {
                 alumnoSeleccionado = idUsuario;
-                mostrarCalendarioCobro(idUsuario);
+                mostrarCalendarioCobro(idUsuario, nombreUsuario);
             }
         }
 
-        function mostrarCalendarioCobro(idUsuario) {
-            document.getElementById("cobroAlumnoNombre").innerText = "ID: " + idUsuario;
+        // --- COBRO CON BOTONES INTERACTIVOS DE FECHAS ---
+        function mostrarCalendarioCobro(idUsuario, nombreAlumno) {
+            document.getElementById("cobroAlumnoNombre").innerText = (nombreAlumno ? nombreAlumno + " | " : "") + "ID: " + idUsuario;
             let contenedorFechas = document.getElementById("listaFechas");
             contenedorFechas.innerHTML = "";
             
@@ -122,20 +210,32 @@
 
             fechas.forEach(fecha => {
                 contenedorFechas.innerHTML += `
-                    <label class="flex items-center p-3 bg-gray-100 rounded border cursor-pointer hover:bg-gray-200">
-                        <input type="checkbox" value="${fecha.valor}" class="dia-cobro w-5 h-5 mr-2 text-yellow-500">
-                        <span class="text-sm font-bold">${fecha.etiqueta}</span>
-                    </label>
+                    <button type="button" 
+                        onclick="toggleSeleccionFecha(this)" 
+                        data-fecha="${fecha.valor}"
+                        class="btn-fecha-cobro w-full p-3 bg-gray-100 text-gray-700 border-2 border-gray-200 rounded-xl font-bold text-sm shadow-sm transition-all duration-150 active:scale-95">
+                        ${fecha.etiqueta}
+                    </button>
                 `;
             });
             document.getElementById("cobroContainer").classList.remove("hidden");
         }
 
+        function toggleSeleccionFecha(btn) {
+            btn.classList.toggle('bg-yellow-500');
+            btn.classList.toggle('text-white');
+            btn.classList.toggle('border-yellow-600');
+            btn.classList.toggle('bg-gray-100');
+            btn.classList.toggle('text-gray-700');
+            btn.classList.toggle('border-gray-200');
+            btn.classList.toggle('fecha-seleccionada');
+        }
+
         function procesarCobroSeleccionado() {
-            let checkboxes = document.querySelectorAll('.dia-cobro:checked');
-            let diasSeleccionados = Array.from(checkboxes).map(cb => cb.value);
+            let botonesSeleccionados = document.querySelectorAll('.fecha-seleccionada');
+            let diasSeleccionados = Array.from(botonesSeleccionados).map(btn => btn.getAttribute('data-fecha'));
             
-            if(diasSeleccionados.length === 0) return alert("Debes seleccionar al menos un día.");
+            if(diasSeleccionados.length === 0) return alert("Debes seleccionar al menos un día pulsando los botones.");
             
             cerrarModal('cobroContainer');
             
@@ -173,12 +273,12 @@
             .then(res => res.json())
             .then(data => {
                 if (data.exito) {
-                    let html = `<p class='text-center font-bold mb-4 bg-indigo-100 p-2 rounded text-indigo-800'>Total a preparar hoy: ${data.ordenes.length}</p>`;
+                    let html = `<p class='text-center font-bold mb-4 bg-indigo-100 p-2 rounded-lg text-indigo-800'>Total a preparar hoy: ${data.ordenes.length}</p>`;
                     if (data.ordenes.length === 0) html += "<p class='text-center text-gray-500 font-bold'>Nadie ha pagado para hoy.</p>";
                     data.ordenes.forEach(o => {
                         let ok = o.estado === 'Entregado';
                         html += `
-                        <div class="p-3 mb-2 rounded border flex justify-between items-center ${ok ? 'bg-green-100 border-green-300' : 'bg-orange-100 border-orange-300'}">
+                        <div class="p-3 mb-2 rounded-xl border flex justify-between items-center ${ok ? 'bg-green-100 border-green-300' : 'bg-orange-100 border-orange-300'}">
                             <div>
                                 <p class="font-bold text-gray-800">${o.nombre}</p>
                                 <p class="text-xs text-gray-600">ID: ${o.id} | Grupo: ${o.grupo}</p>
@@ -202,35 +302,6 @@
                 else alert(data.mensaje);
             })
             .catch(() => alert("Error de red"));
-        }
-
-        function buscarManual() {
-            let busqueda = document.getElementById("busquedaManual").value;
-            
-            document.getElementById("resultadosBusqueda").innerHTML = "<p class='text-gray-500 font-bold'>Buscando...</p>";
-            fetch(URL_SCRIPT, {
-                method: "POST",
-                body: JSON.stringify({ accion: "buscar_manual", busqueda: busqueda })
-            })
-            .then(res => res.json())
-            .then(data => {
-                if(data.exito && data.resultados.length > 0) {
-                    let html = "";
-                    data.resultados.forEach(u => {
-                        html += `<div class="bg-gray-100 p-3 my-2 rounded border flex justify-between items-center shadow-sm">
-                                    <div>
-                                        <p class="font-bold text-gray-800">${u.nombre}</p>
-                                        <p class="text-xs text-gray-600">ID: <span class="font-bold">${u.id}</span> | Grupo: <span class="font-bold text-blue-600">${u.grupo}</span></p>
-                                    </div>
-                                    <button onclick="cerrarLector(); procesarUsuario('${u.id}')" class="bg-blue-600 text-white px-3 py-1 rounded font-bold text-sm shadow">Elegir</button>
-                                 </div>`;
-                    });
-                    document.getElementById("resultadosBusqueda").innerHTML = html;
-                } else {
-                    document.getElementById("resultadosBusqueda").innerHTML = "<p class='text-red-500 font-bold'>No se encontraron registros.</p>";
-                }
-            })
-            .catch(() => document.getElementById("resultadosBusqueda").innerHTML = "<p class='text-red-500 font-bold'>Error de red.</p>");
         }
     </script>
 </body>
