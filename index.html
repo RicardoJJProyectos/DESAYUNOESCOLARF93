@@ -11,7 +11,7 @@
 </head>
 <body class="bg-gray-100 text-gray-800 font-sans">
 
-    <!-- MENÚ PRINCIPAL (Abre directo) -->
+    <!-- MENÚ PRINCIPAL -->
     <div id="mainScreen" class="min-h-screen flex flex-col">
         <header class="bg-blue-600 text-white p-4 shadow-md flex justify-center items-center">
             <h1 class="text-xl font-bold">Gestión de Desayunos</h1>
@@ -24,17 +24,17 @@
             <button onclick="hacerCorteCaja()" class="bg-gray-700 text-white p-6 rounded-xl shadow-md text-xl font-bold">📊 Corte de Caja</button>
         </div>
 
-        <!-- LECTOR QR -->
+        <!-- LECTOR QR Y BÚSQUEDA MANUAL -->
         <div id="qrContainer" class="hidden p-4">
             <h2 id="qrTitulo" class="text-xl font-bold mb-2 text-center">Escanea el QR</h2>
             <div id="reader" class="w-full rounded overflow-hidden shadow-lg border-2 border-blue-400 bg-white"></div>
             <button onclick="cerrarLector()" class="mt-4 w-full bg-red-500 text-white p-3 rounded font-bold shadow-lg">Volver al Menú</button>
             
             <div class="mt-6 bg-white p-4 rounded shadow-md">
-                <p class="mb-2 font-bold text-gray-700">¿No trae QR? Búscalo:</p>
-                <input type="text" id="busquedaManual" placeholder="Escribe el nombre..." class="w-full p-3 border rounded mb-2 text-lg">
-                <button onclick="buscarManual()" class="bg-blue-500 text-white p-3 rounded w-full font-bold">Buscar Manualmente</button>
-                <div id="resultadosBusqueda" class="mt-2 text-left max-h-40 overflow-y-auto"></div>
+                <p class="mb-2 font-bold text-gray-700">¿No trae QR? Busca por ID, Nombre o Grupo:</p>
+                <input type="text" id="busquedaManual" placeholder="Ej: 1024, Juan, o 1A..." class="w-full p-3 border rounded mb-2 text-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <button onclick="buscarManual()" class="bg-blue-500 text-white p-3 rounded w-full font-bold">Buscar</button>
+                <div id="resultadosBusqueda" class="mt-3 text-left max-h-60 overflow-y-auto"></div>
             </div>
         </div>
     </div>
@@ -59,7 +59,7 @@
 
     <script>
         // --- CONFIGURACIÓN ---
-        // Pega tu enlace de Google Apps Script aquí:
+        // Pega tu URL de Google Apps Script aquí:
         const URL_SCRIPT = "https://script.google.com/macros/s/AKfycbwy04JiTDX-KzrZOrYLxcoojMIno_Jf3nJidinwMA7qMu3AzTEJra3umravlcNGwxnHew/exec"; 
         
         let accionActual = ""; 
@@ -179,7 +179,10 @@
                         let ok = o.estado === 'Entregado';
                         html += `
                         <div class="p-3 mb-2 rounded border flex justify-between items-center ${ok ? 'bg-green-100 border-green-300' : 'bg-orange-100 border-orange-300'}">
-                            <div><p class="font-bold text-gray-800">${o.nombre}</p><p class="text-xs text-gray-600">ID: ${o.id}</p></div>
+                            <div>
+                                <p class="font-bold text-gray-800">${o.nombre}</p>
+                                <p class="text-xs text-gray-600">ID: ${o.id} | Grupo: ${o.grupo}</p>
+                            </div>
                             <div class="font-bold ${ok ? 'text-green-700' : 'text-orange-600'}">${ok ? '✅' : '⏳'} ${o.estado}</div>
                         </div>`;
                     });
@@ -202,27 +205,29 @@
         }
 
         function buscarManual() {
-            let nombre = document.getElementById("busquedaManual").value;
-            if(nombre.length < 3) return alert("Escribe al menos 3 letras");
+            let busqueda = document.getElementById("busquedaManual").value;
             
-            document.getElementById("resultadosBusqueda").innerHTML = "<p class='text-gray-500'>Buscando...</p>";
+            document.getElementById("resultadosBusqueda").innerHTML = "<p class='text-gray-500 font-bold'>Buscando...</p>";
             fetch(URL_SCRIPT, {
                 method: "POST",
-                body: JSON.stringify({ accion: "buscar_manual", nombre: nombre })
+                body: JSON.stringify({ accion: "buscar_manual", busqueda: busqueda })
             })
             .then(res => res.json())
             .then(data => {
                 if(data.exito && data.resultados.length > 0) {
                     let html = "";
                     data.resultados.forEach(u => {
-                        html += `<div class="bg-gray-200 p-3 my-2 rounded flex justify-between items-center shadow-sm">
-                                    <span class="font-bold text-sm truncate max-w-[70%]">${u.nombre}</span>
-                                    <button onclick="cerrarLector(); procesarUsuario('${u.id}')" class="bg-blue-600 text-white px-3 py-1 rounded font-bold shadow">Elegir</button>
+                        html += `<div class="bg-gray-100 p-3 my-2 rounded border flex justify-between items-center shadow-sm">
+                                    <div>
+                                        <p class="font-bold text-gray-800">${u.nombre}</p>
+                                        <p class="text-xs text-gray-600">ID: <span class="font-bold">${u.id}</span> | Grupo: <span class="font-bold text-blue-600">${u.grupo}</span></p>
+                                    </div>
+                                    <button onclick="cerrarLector(); procesarUsuario('${u.id}')" class="bg-blue-600 text-white px-3 py-1 rounded font-bold text-sm shadow">Elegir</button>
                                  </div>`;
                     });
                     document.getElementById("resultadosBusqueda").innerHTML = html;
                 } else {
-                    document.getElementById("resultadosBusqueda").innerHTML = "<p class='text-red-500 font-bold'>No se encontró el alumno.</p>";
+                    document.getElementById("resultadosBusqueda").innerHTML = "<p class='text-red-500 font-bold'>No se encontraron registros.</p>";
                 }
             })
             .catch(() => document.getElementById("resultadosBusqueda").innerHTML = "<p class='text-red-500 font-bold'>Error de red.</p>");
