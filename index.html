@@ -151,7 +151,26 @@
             alumnoSeleccionado = id;
             nombreAlumnoSeleccionado = nombre;
             desactivarEscanerQR();
-            mostrarCalendarioCobro(id, nombre);
+            
+            // Mostrar modal inmediatamente con indicador de carga
+            document.getElementById("cobroAlumnoNombre").innerText = (nombre ? nombre + " | " : "") + "ID: " + id;
+            document.getElementById("listaFechas").innerHTML = "<p class='text-center col-span-2 py-8 text-gray-500 font-bold'>Verificando historial de pagos...</p>";
+            document.getElementById("cobroContainer").classList.remove("hidden");
+
+            // Consultar días previamente pagados
+            fetch(URL_SCRIPT, {
+                method: "POST",
+                body: JSON.stringify({ accion: "dias_pagados", id_usuario: id })
+            })
+            .then(res => res.json())
+            .then(data => {
+                let pagados = (data.exito && data.pagados) ? data.pagados : [];
+                mostrarCalendarioCobro(id, nombre, pagados);
+            })
+            .catch(() => {
+                alert("Error de red al consultar pagos previos. Mostrando calendario predeterminado.");
+                mostrarCalendarioCobro(id, nombre, []);
+            });
         }
 
         // --- LECTOR QR ---
@@ -179,8 +198,8 @@
             seleccionarAlumno(decodedText, "");
         }
 
-        // --- MOSTRAR CALENDARIO Y BLOQUEO POSTERIOR A LAS 10:00 AM ---
-        function mostrarCalendarioCobro(idUsuario, nombreAlumno) {
+        // --- CALENDARIO CON VALIDACIÓN DE PAGOS PREVIOS Y HORA LÍMITE ---
+        function mostrarCalendarioCobro(idUsuario, nombreAlumno, diasPagados = []) {
             document.getElementById("cobroAlumnoNombre").innerText = (nombreAlumno ? nombreAlumno + " | " : "") + "ID: " + idUsuario;
             let contenedorFechas = document.getElementById("listaFechas");
             contenedorFechas.innerHTML = "";
@@ -200,14 +219,22 @@
                     
                     let esHoy = (iso === hoyStr);
                     let bloqueadoPorHora = esHoy && (horaActual >= 10);
+                    let yaPagado = diasPagados.includes(iso);
 
-                    fechas.push({ valor: iso, etiqueta: fechaMostrada, esHoy: esHoy, bloqueado: bloqueadoPorHora });
+                    fechas.push({ valor: iso, etiqueta: fechaMostrada, esHoy: esHoy, bloqueado: bloqueadoPorHora, yaPagado: yaPagado });
                 }
                 f.setDate(f.getDate() + 1);
             }
 
             fechas.forEach(fecha => {
-                if (fecha.bloqueado) {
+                if (fecha.yaPagado) {
+                    contenedorFechas.innerHTML += `
+                        <button type="button" disabled 
+                            class="w-full p-3 bg-green-100 text-green-700 border-2 border-green-300 rounded-xl font-bold text-xs cursor-not-allowed text-center shadow-none">
+                            ${fecha.etiqueta}<br><span class="text-[10px] text-green-600 font-bold">✅ Ya Pagado</span>
+                        </button>
+                    `;
+                } else if (fecha.bloqueado) {
                     contenedorFechas.innerHTML += `
                         <button type="button" disabled 
                             class="w-full p-3 bg-gray-200 text-gray-400 border-2 border-gray-300 rounded-xl font-bold text-xs cursor-not-allowed text-center shadow-none">
@@ -238,7 +265,7 @@
             btn.classList.toggle('fecha-seleccionada');
         }
 
-        // --- PROCESAR COBRO CON CONFIRMACIÓN OBLIGATORIA ---
+        // --- PROCESAR COBRO CON CONFIRMACIÓN ---
         function procesarCobroSeleccionado() {
             let botonesSeleccionados = document.querySelectorAll('.fecha-seleccionada');
             let diasSeleccionados = Array.from(botonesSeleccionados).map(btn => btn.getAttribute('data-fecha'));
@@ -251,7 +278,7 @@
             let confirmacion = confirm(`⚠️ CONFIRMAR PAGO DE DESAYUNOS\n\nAlumno: ${identificadorAlumno}\nDías a cobrar: ${diasSeleccionados.length}\nTotal: $${totalCobro}\n\n¿Deseas completar la transacción?`);
             
             if (!confirmacion) {
-                return; // Mantiene la pantalla abierta si no confirma
+                return;
             }
 
             cerrarModal('cobroContainer');
@@ -268,7 +295,7 @@
             .then(data => {
                 alert(data.exito ? "✅ " + data.mensaje : "❌ " + data.mensaje);
                 if (data.exito) {
-                    cerrarModulo(); // Regresa al menú principal solo al confirmar y registrar con éxito
+                    cerrarModulo();
                 }
             })
             .catch(() => alert("Error de conexión al procesar el pago."));
