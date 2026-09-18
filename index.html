@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Desayunos Escolares</title>
+    <title>Desayunos Escolares - Sec. Foránea 93</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Lector QR -->
@@ -11,13 +11,39 @@
 </head>
 <body class="bg-gray-100 text-gray-800 font-sans">
 
+    <!-- MODAL INICIAL: SOLICITAR NOMBRE DEL COBRADOR -->
+    <div id="modalCobrador" class="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl text-center">
+            <img src="logo.jpg" alt="Logo Escuela" class="h-28 mx-auto mb-3 object-contain">
+            <h3 class="text-xl font-bold text-gray-800 mb-1">Secundaria Foránea 93</h3>
+            <p class="text-xs text-gray-500 mb-4 font-semibold uppercase tracking-wider">Gestión de Desayunos</p>
+            
+            <label class="block text-left text-xs font-bold text-gray-700 mb-1">Nombre del Encargado de Cobro:</label>
+            <input type="text" id="inputNombreCobrador" placeholder="Ej. Profr. Carlos Pérez" class="w-full p-3 border-2 border-blue-400 rounded-xl mb-4 text-center font-bold text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            
+            <button onclick="guardarNombreCobrador()" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl font-bold text-lg shadow-lg transition-all active:scale-95">
+                Iniciar Turno
+            </button>
+        </div>
+    </div>
+
     <!-- MENÚ PRINCIPAL -->
     <div id="mainScreen" class="min-h-screen flex flex-col">
-        <header class="bg-blue-600 text-white p-4 shadow-md flex justify-center items-center">
-            <h1 class="text-xl font-bold">Gestión de Desayunos</h1>
+        <header class="bg-blue-600 text-white p-3 shadow-md flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <img src="logo.jpg" alt="Logo" class="h-12 w-12 object-contain bg-white rounded-full p-1 shadow">
+                <div>
+                    <h1 class="text-base font-bold leading-tight">Sec. Foránea 93</h1>
+                    <p class="text-[11px] text-blue-100">Desayunos Escolares</p>
+                </div>
+            </div>
+            <button onclick="pedirNombreCobrador()" class="text-right bg-blue-700 hover:bg-blue-800 px-3 py-1.5 rounded-lg border border-blue-400 font-semibold shadow-sm transition-all">
+                <p class="text-[10px] text-blue-200">Encargado:</p>
+                <p id="lblCobrador" class="text-xs font-bold truncate max-w-[100px]">Ingresar</p>
+            </button>
         </header>
 
-        <div class="p-4 grid gap-4 grid-cols-1 max-w-md mx-auto w-full">
+        <div class="p-4 grid gap-4 grid-cols-1 max-w-md mx-auto w-full mt-2">
             <button onclick="abrirModuloCobro()" class="bg-yellow-500 hover:bg-yellow-600 text-white p-6 rounded-xl shadow-md text-xl font-bold transition-all flex items-center justify-center gap-2">💰 Cobrar Semana(s)</button>
             <button onclick="verOrdenesDia()" class="bg-indigo-500 hover:bg-indigo-600 text-white p-6 rounded-xl shadow-md text-xl font-bold transition-all flex items-center justify-center gap-2">📋 Órdenes de Hoy</button>
             <button onclick="hacerCorteCaja()" class="bg-gray-700 hover:bg-gray-800 text-white p-6 rounded-xl shadow-md text-xl font-bold transition-all flex items-center justify-center gap-2">📊 Corte de Caja</button>
@@ -94,8 +120,37 @@
         let html5QrcodeScanner = null;
         let alumnoSeleccionado = ""; 
         let nombreAlumnoSeleccionado = "";
+        let nombreCobrador = localStorage.getItem("cobrador_desayunos") || "";
+
+        // CONTROL DE REGISTRO DEL COBRADOR
+        window.addEventListener("DOMContentLoaded", function() {
+            if (!nombreCobrador) {
+                document.getElementById("modalCobrador").classList.remove("hidden");
+            } else {
+                document.getElementById("modalCobrador").classList.add("hidden");
+                document.getElementById("lblCobrador").innerText = nombreCobrador;
+            }
+        });
+
+        function pedirNombreCobrador() {
+            document.getElementById("inputNombreCobrador").value = nombreCobrador;
+            document.getElementById("modalCobrador").classList.remove("hidden");
+        }
+
+        function guardarNombreCobrador() {
+            let val = document.getElementById("inputNombreCobrador").value.trim();
+            if (!val) return alert("Ingresa tu nombre para identificarte en los cobros.");
+            nombreCobrador = val;
+            localStorage.setItem("cobrador_desayunos", nombreCobrador);
+            document.getElementById("lblCobrador").innerText = nombreCobrador;
+            document.getElementById("modalCobrador").classList.add("hidden");
+        }
 
         function abrirModuloCobro() {
+            if (!nombreCobrador) {
+                pedirNombreCobrador();
+                return;
+            }
             document.getElementById("selectGrupo").value = "";
             document.getElementById("listaAlumnosGrupo").innerHTML = "";
             desactivarEscanerQR();
@@ -111,7 +166,7 @@
             document.getElementById(id).classList.add("hidden");
         }
 
-        // --- FILTRADO POR GRUPO ---
+        // FILTRADO POR GRUPO
         function filtrarPorGrupo(grupo) {
             let contenedor = document.getElementById("listaAlumnosGrupo");
             if (!grupo) {
@@ -152,12 +207,10 @@
             nombreAlumnoSeleccionado = nombre;
             desactivarEscanerQR();
             
-            // Mostrar modal inmediatamente con indicador de carga
             document.getElementById("cobroAlumnoNombre").innerText = (nombre ? nombre + " | " : "") + "ID: " + id;
             document.getElementById("listaFechas").innerHTML = "<p class='text-center col-span-2 py-8 text-gray-500 font-bold'>Verificando historial de pagos...</p>";
             document.getElementById("cobroContainer").classList.remove("hidden");
 
-            // Consultar días previamente pagados
             fetch(URL_SCRIPT, {
                 method: "POST",
                 body: JSON.stringify({ accion: "dias_pagados", id_usuario: id })
@@ -173,7 +226,7 @@
             });
         }
 
-        // --- LECTOR QR ---
+        // LECTOR QR
         function activarEscanerQR() {
             document.getElementById("qrCamaraContainer").classList.remove("hidden");
             if (!html5QrcodeScanner) {
@@ -198,7 +251,7 @@
             seleccionarAlumno(decodedText, "");
         }
 
-        // --- CALENDARIO CON VALIDACIÓN DE PAGOS PREVIOS Y HORA LÍMITE ---
+        // CALENDARIO
         function mostrarCalendarioCobro(idUsuario, nombreAlumno, diasPagados = []) {
             document.getElementById("cobroAlumnoNombre").innerText = (nombreAlumno ? nombreAlumno + " | " : "") + "ID: " + idUsuario;
             let contenedorFechas = document.getElementById("listaFechas");
@@ -265,7 +318,7 @@
             btn.classList.toggle('fecha-seleccionada');
         }
 
-        // --- PROCESAR COBRO CON CONFIRMACIÓN ---
+        // PROCESAR COBRO
         function procesarCobroSeleccionado() {
             let botonesSeleccionados = document.querySelectorAll('.fecha-seleccionada');
             let diasSeleccionados = Array.from(botonesSeleccionados).map(btn => btn.getAttribute('data-fecha'));
@@ -275,11 +328,9 @@
             let totalCobro = diasSeleccionados.length * 30;
             let identificadorAlumno = nombreAlumnoSeleccionado ? `${nombreAlumnoSeleccionado} (${alumnoSeleccionado})` : `ID: ${alumnoSeleccionado}`;
             
-            let confirmacion = confirm(`⚠️ CONFIRMAR PAGO DE DESAYUNOS\n\nAlumno: ${identificadorAlumno}\nDías a cobrar: ${diasSeleccionados.length}\nTotal: $${totalCobro}\n\n¿Deseas completar la transacción?`);
+            let confirmacion = confirm(`⚠️ CONFIRMAR PAGO DE DESAYUNOS\n\nAlumno: ${identificadorAlumno}\nEncargado: ${nombreCobrador}\nDías a cobrar: ${diasSeleccionados.length}\nTotal: $${totalCobro}\n\n¿Deseas completar la transacción?`);
             
-            if (!confirmacion) {
-                return;
-            }
+            if (!confirmacion) return;
 
             cerrarModal('cobroContainer');
             
@@ -288,7 +339,8 @@
                 body: JSON.stringify({
                     accion: "cobrar",
                     id_usuario: alumnoSeleccionado,
-                    fechas: diasSeleccionados
+                    fechas: diasSeleccionados,
+                    cobrador: nombreCobrador
                 })
             })
             .then(res => res.json())
@@ -343,4 +395,5 @@
         }
     </script>
 </body>
+</html>
 </html>
