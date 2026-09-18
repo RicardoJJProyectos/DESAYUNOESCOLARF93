@@ -15,7 +15,7 @@
 </head>
 <body class="bg-gray-200 text-gray-900 font-sans border-4 border-gray-400 min-h-screen">
 
-    <!-- SPINNER DE CARGA -->
+    <!-- OVERLAY SPINNER -->
     <div id="loadingOverlay" class="hidden fixed inset-0 bg-black/80 flex flex-col items-center justify-center z-50 text-white p-4">
         <div class="w-16 h-16 border-8 border-gray-300 border-t-[#6B1C23] rounded-full animate-spin mb-4 shadow-2xl"></div>
         <p id="loadingText" class="text-lg font-black tracking-wide text-center">Conectando con el servidor...</p>
@@ -133,7 +133,6 @@
         let nombreAlumnoSeleccionado = "";
         let nombreCobrador = localStorage.getItem("cobrador_desayunos") || "";
 
-        // CACHÉ DE MEMORIA COMPLETA
         let baseAlumnosLocal = [];
         const cachePagos = {};
 
@@ -146,21 +145,24 @@
             document.getElementById("loadingOverlay").classList.add("hidden");
         }
 
-        async function fetchConTimeout(payload, timeoutMs = 12000) {
-            const controller = new AbortController();
-            const timer = setTimeout(() => controller.abort(), timeoutMs);
-
-            try {
-                const response = await fetch(URL_SCRIPT, {
-                    method: "POST",
-                    body: JSON.stringify(payload),
-                    signal: controller.signal
-                });
-                clearTimeout(timer);
-                return await response.json();
-            } catch (error) {
-                clearTimeout(timer);
-                throw error;
+        // FETCH CON REINTENTOS AUTOMÁTICOS DE CONEXIÓN
+        async function fetchConReintentos(payload, timeoutMs = 8000, intentosMax = 3) {
+            for (let i = 1; i <= intentosMax; i++) {
+                const controller = new AbortController();
+                const timer = setTimeout(() => controller.abort(), timeoutMs);
+                try {
+                    if (i > 1) mostrarCargando(`Reintentando conexión (${i}/${intentosMax})...`);
+                    const response = await fetch(URL_SCRIPT, {
+                        method: "POST",
+                        body: JSON.stringify(payload),
+                        signal: controller.signal
+                    });
+                    clearTimeout(timer);
+                    return await response.json();
+                } catch (error) {
+                    clearTimeout(timer);
+                    if (i === intentosMax) throw error;
+                }
             }
         }
 
@@ -174,16 +176,15 @@
             precargarBaseAlumnos();
         });
 
-        // PRECARGA GENERAL DE ALUMNOS AL INICIAR
         async function precargarBaseAlumnos() {
             try {
-                const data = await fetchConTimeout({ accion: "cargar_todos_usuarios" }, 15000);
+                const data = await fetchConReintentos({ accion: "cargar_todos_usuarios" }, 12000, 2);
                 if (data.exito) {
                     baseAlumnosLocal = data.usuarios;
-                    console.log("✅ Padrón cargado en memoria:", baseAlumnosLocal.length, "alumnos.");
+                    console.log("✅ Padrón cargado:", baseAlumnosLocal.length);
                 }
             } catch (err) {
-                console.warn("⚠️ No se pudo precargar la lista local, se reintentará al seleccionar grupo.");
+                console.warn("⚠️ No se pudo precargar lista general.");
             }
         }
 
@@ -194,7 +195,7 @@
 
         function guardarNombreCobrador() {
             let val = document.getElementById("inputNombreCobrador").value.trim();
-            if (!val) return alert("Por favor ingresa tu nombre.");
+            if (!val) return alert("Ingresa tu nombre para identificarte.");
             nombreCobrador = val;
             localStorage.setItem("cobrador_desayunos", nombreCobrador);
             document.getElementById("lblCobrador").innerText = nombreCobrador;
@@ -218,7 +219,6 @@
             document.getElementById(id).classList.add("hidden");
         }
 
-        // FILTRADO INSTANTÁNEO EN LOCAL
         async function filtrarPorGrupo(grupo) {
             let contenedor = document.getElementById("listaAlumnosGrupo");
             if (!grupo) {
@@ -227,7 +227,7 @@
             }
 
             if (baseAlumnosLocal.length === 0) {
-                mostrarCargando("Sincronizando lista de alumnos...");
+                mostrarCargando("Sincronizando lista...");
                 await precargarBaseAlumnos();
                 ocultarCargando();
             }
@@ -237,7 +237,7 @@
             if (filtrados.length > 0) {
                 renderizarListaAlumnos(filtrados);
             } else {
-                contenedor.innerHTML = "<p class='text-red-600 font-black text-center py-4'>No se encontraron alumnos en el grupo " + grupo + ".</p>";
+                contenedor.innerHTML = "<p class='text-red-600 font-black text-center py-4'>No hay alumnos en el grupo " + grupo + ".</p>";
             }
         }
 
@@ -257,6 +257,7 @@
             contenedor.innerHTML = html;
         }
 
+        // SELECCIONAR ALUMNO CON VALIDACIÓN PROTEGIDA DE CONEXIÓN
         async function seleccionarAlumno(id, nombre) {
             alumnoSeleccionado = id;
             nombreAlumnoSeleccionado = nombre;
@@ -268,16 +269,22 @@
                 pagados = cachePagos[id];
                 mostrarCalendarioCobro(id, nombre, pagados);
             } else {
-                mostrarCargando("Verificando historial...");
+                mostrarCargando("Verificando historial de pagos...");
                 try {
-                    const data = await fetchConTimeout({ accion: "dias_pagados", id_usuario: id }, 7000);
+                    const data = await fetchConReintentos({ accion: "dias_pagados", id_usuario: id }, 7000, 3);
                     ocultarCargando();
-                    pagados = (data.exito && data.pagados) ? data.pagados : [];
-                    cachePagos[id] = pagados;
-                    mostrarCalendarioCobro(id, nombre, pagados);
+                    
+                    if (data && data.exito) {
+                        pagados = data.pagados || [];
+                        cachePagos[id] = pagados;
+                        mostrarCalendarioCobro(id, nombre, pagados);
+                    } else {
+                        throw new Error("Respuesta inválida del servidor");
+                    }
                 } catch (e) {
                     ocultarCargando();
-                    mostrarCalendarioCobro(id, nombre, []);
+                    // BLOQUEO DE SEGURIDAD: No abre el calendario si no se pudo verificar el historial para evitar cobranza doble.
+                    alert("⚠️ ERROR DE CONEXIÓN\n\nNo se pudo verificar el historial de pagos del alumno desde el servidor.\n\nPor seguridad, no se abrirá el calendario para evitar cobros duplicados. Revisa tu conexión a internet e intenta de nuevo.");
                 }
             }
         }
@@ -303,12 +310,17 @@
 
         function onScanSuccess(decodedText) {
             desactivarEscanerQR(); 
-            
-            // Buscar nombre del alumno en la base local si existe
             let alumnoEncontrado = baseAlumnosLocal.find(u => u.id.toLowerCase() === decodedText.toLowerCase());
             let nombre = alumnoEncontrado ? alumnoEncontrado.nombre : "";
-            
             seleccionarAlumno(decodedText, nombre);
+        }
+
+        // GENERACIÓN RIGUROSA DE FECHAS EN FORMATO YYYY-MM-DD
+        function obtenerFechaISO(d) {
+            let anio = d.getFullYear();
+            let mes = String(d.getMonth() + 1).padStart(2, '0');
+            let dia = String(d.getDate()).padStart(2, '0');
+            return `${anio}-${mes}-${dia}`;
         }
 
         function mostrarCalendarioCobro(idUsuario, nombreAlumno, diasPagados = []) {
@@ -318,7 +330,7 @@
             
             let ahora = new Date();
             let horaActual = ahora.getHours();
-            let hoyStr = ahora.getFullYear() + '-' + String(ahora.getMonth() + 1).padStart(2, '0') + '-' + String(ahora.getDate()).padStart(2, '0');
+            let hoyStr = obtenerFechaISO(ahora);
 
             let fechas = [];
             let f = new Date();
@@ -326,7 +338,7 @@
             while(fechas.length < 20) {
                 let diaSemana = f.getDay();
                 if(diaSemana !== 0 && diaSemana !== 6) { 
-                    let iso = f.getFullYear() + '-' + String(f.getMonth() + 1).padStart(2, '0') + '-' + String(f.getDate()).padStart(2, '0');
+                    let iso = obtenerFechaISO(f);
                     let fechaMostrada = f.toLocaleDateString('es-MX', { weekday: 'short', month: 'short', day: 'numeric' });
                     
                     let esHoy = (iso === hoyStr);
@@ -391,15 +403,15 @@
             if (!confirmacion) return;
 
             cerrarModal('cobroContainer');
-            mostrarCargando("Guardando el cobro...");
+            mostrarCargando("Guardando el cobro en el servidor...");
             
             try {
-                const data = await fetchConTimeout({
+                const data = await fetchConReintentos({
                     accion: "cobrar",
                     id_usuario: alumnoSeleccionado,
                     fechas: diasSeleccionados,
                     cobrador: nombreCobrador
-                }, 12000);
+                }, 10000, 3);
                 
                 ocultarCargando();
                 alert(data.exito ? "✅ " + data.mensaje : "❌ " + data.mensaje);
@@ -411,17 +423,17 @@
                 }
             } catch (e) {
                 ocultarCargando();
-                alert("❌ Error de red o tiempo de espera agotado. Verifica la conexión.");
+                alert("❌ Falló el registro del cobro por problemas de conexión. Por favor intenta registrar el pago de nuevo.");
             }
         }
 
         async function verOrdenesDia() {
             document.getElementById("ordenesContainer").classList.remove("hidden");
             document.getElementById("listaOrdenes").innerHTML = "";
-            mostrarCargando("Cargando lista...");
+            mostrarCargando("Cargando lista del día...");
 
             try {
-                const data = await fetchConTimeout({ accion: "ordenes_dia" }, 10000);
+                const data = await fetchConReintentos({ accion: "ordenes_dia" }, 8000, 2);
                 ocultarCargando();
                 if (data.exito) {
                     let html = `<p class='text-center font-black mb-4 bg-gray-200 p-3 rounded-xl border-2 border-gray-400 text-tinto text-base'>Total pagados hoy: ${data.ordenes.length}</p>`;
@@ -447,7 +459,7 @@
         async function hacerCorteCaja() {
             mostrarCargando("Calculando corte...");
             try {
-                const data = await fetchConTimeout({ accion: "corte" }, 10000);
+                const data = await fetchConReintentos({ accion: "corte" }, 8000, 2);
                 ocultarCargando();
                 if (data.exito) alert(`📊 CORTE DE HOY\n\nDinero cobrado hoy: $${data.cobrado}\nDesayunos pagados hoy: ${data.cantidad}`);
                 else alert(data.mensaje);
